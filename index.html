@@ -3,10 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0d1418">
+<meta name="theme-color" content="#0f191f">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Spesa al Volo">
 <meta name="description" content="Spesa al Volo: spara codici a barre e QR code con il telefono e il totale della spesa si aggiorna da solo.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon-64.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<script>window.SAV_LOCAL = true;</script>
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>Spesa al Volo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -239,6 +245,27 @@ button{cursor:pointer}
 .offscreen{position:absolute;left:-9999px;top:0;width:300px;height:300px;overflow:hidden}
 
 .btn:disabled{opacity:.5;cursor:default}
+.top-r{display:flex;align-items:center;gap:8px;flex:none}
+.icon-btn{position:relative;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:0}
+.icon-btn svg{width:19px;height:19px}
+.icon-btn:hover{border-color:var(--muted)}
+.icon-btn .dot{position:absolute;top:1px;right:1px;width:10px;height:10px;border-radius:50%;background:var(--laser);border:2px solid var(--bg)}
+.set-sec{display:grid;gap:10px;padding:12px;border-radius:var(--r-s);background:var(--soft)}
+.set-sec h3{margin:0;font-size:12px;letter-spacing:.1em;color:var(--muted);font-weight:700}
+.set-row{display:flex;align-items:center;gap:12px}
+.set-ic{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;flex:none;background:var(--paper);color:var(--muted);border:1px solid var(--line)}
+.set-ic svg{width:20px;height:20px}
+.set-ic[data-ok="1"]{background:var(--go-soft);color:var(--go);border-color:transparent}
+.set-t{flex:1;min-width:0;display:grid;gap:1px}
+.set-t b{font-size:15px}
+.set-t span{font-size:12.5px;color:var(--muted)}
+.set-row .btn{flex:none;min-height:40px}
+.bk-sum{margin:0;font-size:13.5px;font-weight:600}
+.bk-last{margin:0;font-size:13px;color:var(--go);font-weight:600}
+.bk-last[data-level="warn"]{color:var(--warn)}
+.bk-restore{display:grid;gap:10px;padding:10px 12px;border-radius:var(--r-s);background:var(--paper);border:1px solid var(--line)}
+.bk-restore p{margin:0;font-size:13.5px}
+.bk-restore .btn-danger{background:var(--laser);color:var(--laser-ink);border-color:transparent}
 /* budget nel display */
 .till-budget{grid-column:1/-1;display:block;width:100%;margin-top:8px;padding:10px 12px;border-radius:11px;border:1px solid rgb(255 255 255 / .1);background:var(--till-panel);color:var(--till-ink);text-align:left;font:inherit;transition:background .2s,border-color .2s}
 .till-budget:hover{border-color:rgb(255 255 255 / .22)}
@@ -368,7 +395,13 @@ button{cursor:pointer}
 <div class="app">
   <header class="top">
     <div class="brand"><span class="glyph" aria-hidden="true"></span><span class="brand-name">Spesa al Volo</span></div>
-    <span class="chip" id="cam-chip" data-s="off">Scanner spento</span>
+    <div class="top-r">
+      <span class="chip" id="cam-chip" data-s="off">Scanner spento</span>
+      <button class="icon-btn" id="btn-settings" type="button" aria-label="Impostazioni, app e backup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+        <i class="dot" id="settings-dot" hidden></i>
+      </button>
+    </div>
   </header>
 
   <button class="store-bar is-empty" id="store-bar" type="button">
@@ -625,6 +658,56 @@ button{cursor:pointer}
   </div>
 </div>
 
+<!-- Foglio impostazioni, app e backup -->
+<div class="sheet" id="sheet-settings" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="set-title">
+    <h2 id="set-title">Impostazioni e dati</h2>
+
+    <section class="set-sec" aria-labelledby="set-h-app">
+      <h3 id="set-h-app">APP SUL TELEFONO</h3>
+      <div class="set-row">
+        <span class="set-ic" id="inst-ic" data-ok="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></svg></span>
+        <div class="set-t"><b id="inst-t">Installa l'app</b><span id="inst-s"></span></div>
+        <button class="btn btn-go" id="inst-btn" type="button" hidden>Installa</button>
+      </div>
+      <div class="set-row">
+        <span class="set-ic" id="off-ic" data-ok="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.8a15 15 0 0 1 20 0M5 12.6a10 10 0 0 1 14 0M8.5 16.4a5 5 0 0 1 7 0"/><circle cx="12" cy="20" r="1"/></svg></span>
+        <div class="set-t"><b>Uso senza rete</b><span id="off-s"></span></div>
+        <button class="btn" id="off-btn" type="button" hidden>Scarica</button>
+      </div>
+    </section>
+
+    <section class="set-sec" aria-labelledby="set-h-bk">
+      <h3 id="set-h-bk">BACKUP DEI DATI</h3>
+      <p class="bk-sum" id="bk-sum"></p>
+      <p class="bk-last" id="bk-last" data-level="ok"></p>
+      <div class="panel-actions">
+        <button class="btn btn-go" id="bk-save" type="button">Salva backup</button>
+        <button class="btn" id="bk-share" type="button" hidden>Invia o salva su Drive</button>
+        <label class="btn" for="bk-file">Ripristina</label>
+      </div>
+      <input id="bk-file" type="file" accept=".json,application/json" class="offscreen">
+      <div class="bk-restore" id="bk-restore" hidden>
+        <p id="bk-restore-t"></p>
+        <div class="panel-actions">
+          <button class="btn" id="bk-cancel" type="button">Annulla</button>
+          <button class="btn" id="bk-merge" type="button">Unisci ai miei dati</button>
+          <button class="btn btn-danger" id="bk-replace" type="button">Sostituisci tutto</button>
+        </div>
+      </div>
+      <p class="hint">Il backup è un file con negozi, listini, storico, lista e budget. Tienilo su Drive o mandalo a te stesso: se cambi telefono lo ripristini in un tocco. «Unisci» serve anche a passare i prezzi a un familiare.</p>
+    </section>
+
+    <section class="set-sec" aria-labelledby="set-h-read">
+      <h3 id="set-h-read">LETTURA</h3>
+      <label class="check"><input id="set-weighed" type="checkbox"><span>Etichette di banco e a peso (codici che iniziano per 2): leggi il prezzo dalle cifre 8–12 del codice</span></label>
+      <label class="check"><input id="set-sound" type="checkbox"><span>Bip e vibrazione a ogni lettura</span></label>
+    </section>
+
+    <div class="panel-actions"><button class="btn btn-go" id="set-close" type="button">Chiudi</button></div>
+  </div>
+</div>
+
 <!-- Foglio listino -->
 <div class="sheet" id="sheet-cat" hidden>
   <div class="panel" role="dialog" aria-modal="true" aria-labelledby="cat-title">
@@ -636,11 +719,6 @@ button{cursor:pointer}
     </div>
     <ul class="cat-list" id="cat-list"></ul>
     <p class="hint" id="cat-empty" hidden>Ancora nessun prezzo salvato. Quando spari un codice nuovo e scrivi il prezzo, lo trovi qui.</p>
-    <div class="settings">
-      <h3>IMPOSTAZIONI</h3>
-      <label class="check"><input id="set-weighed" type="checkbox"><span>Etichette di banco e a peso (codici che iniziano per 2): leggi il prezzo dalle cifre 8–12 del codice</span></label>
-      <label class="check"><input id="set-sound" type="checkbox"><span>Bip e vibrazione a ogni lettura</span></label>
-    </div>
     <div class="panel-actions"><button class="btn btn-go" id="cat-close" type="button">Chiudi</button></div>
   </div>
 </div>
@@ -667,6 +745,7 @@ var ZXingWASM=(function(e){Object.defineProperty(e,Symbol.toStringTag,{value:`Mo
 const KEY = { cart:'spesaVolo.cart.v1', cat:'spesaVolo.catalog.v1', set:'spesaVolo.settings.v1', seen:'spesaVolo.started.v1',
               stores:'spesaVolo.stores.v1', cats:'spesaVolo.catalogs.v1', cur:'spesaVolo.store.v1',
               list:'spesaVolo.list.v1', hist:'spesaVolo.history.v1' };
+const LOCAL = !!window.SAV_LOCAL;   // versione GitHub: componenti nel repository, funzionano senza rete
 const store = {
   get(k, d){ try{ const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); }catch(e){ return d; } },
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
@@ -860,25 +939,28 @@ function feedback(kind){
 document.addEventListener('pointerdown', ensureAudio, { passive:true });
 
 /* ---------- toast con annulla ---------- */
-let toastTimer = 0;
+let toastTimer = 0, toastAction = null;
 function toast(a, b, opt){
   opt = opt || {};
   $('toast-a').textContent = a;
   $('toast-b').textContent = b || '';
   $('toast-b').hidden = !b;
   $('toast').dataset.tone = opt.tone || 'ok';
-  $('toast-undo').hidden = !opt.undo;
+  toastAction = opt.action ? opt.action.fn : opt.undo ? doUndo : null;
+  $('toast-undo').textContent = opt.action ? opt.action.label : 'Annulla';
+  $('toast-undo').hidden = !toastAction;
   $('toast').hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { $('toast').hidden = true; }, opt.undo ? 5000 : 3200);
+  toastTimer = setTimeout(() => { $('toast').hidden = true; }, opt.action ? 7000 : opt.undo ? 5000 : 3200);
 }
-$('toast-undo').addEventListener('click', () => {
+$('toast-undo').addEventListener('click', () => { const f = toastAction; $('toast').hidden = true; toastAction = null; if(f) f(); });
+function doUndo(){
   if(undoState == null) return;
   cart = JSON.parse(undoState); undoState = null;
   seq = cart.reduce((m, l) => Math.max(m, l.n || 0), 0);
   save(); render();
   toast('Operazione annullata', '', { tone:'warn' });
-});
+}
 
 /* ---------- cuore: cosa succede quando arriva un codice ---------- */
 function handleCode(raw){
@@ -1054,7 +1136,7 @@ document.addEventListener('keydown', e => {
 
 /* ---------- foglio articolo ---------- */
 let itemCtx = null;
-function anySheetOpen(){ return !$('sheet-item').hidden || !$('sheet-cat').hidden || !$('sheet-copy').hidden || !$('sheet-tag').hidden || !$('sheet-store').hidden || !$('sheet-budget').hidden || !$('sheet-list').hidden || !$('sheet-hist').hidden; }
+function anySheetOpen(){ return !$('sheet-item').hidden || !$('sheet-cat').hidden || !$('sheet-copy').hidden || !$('sheet-tag').hidden || !$('sheet-store').hidden || !$('sheet-budget').hidden || !$('sheet-list').hidden || !$('sheet-hist').hidden || !$('sheet-settings').hidden; }
 function showItemErr(msg){ $('item-err').textContent = msg; $('item-err').hidden = !msg; }
 function setQty(n){ $('item-qty').value = String(n); $('item-qty').textContent = String(n); }
 function getQty(){ return parseInt($('item-qty').textContent, 10) || 0; }
@@ -1145,7 +1227,7 @@ $('item-form').addEventListener('submit', e => {
 
   if(ctx.mode === 'new'){
     const nm = name || (ctx.kind === 'qr' ? 'Articolo da QR' : 'Articolo ' + ctx.code.slice(-5));
-    if($('item-remember').checked){ catalog[ctx.code] = { name: nm, price }; saveCat(); }
+    if($('item-remember').checked){ catalog[ctx.code] = { name: nm, price, t: Date.now() }; saveCat(); }
     snapshot();
     const l = newLine(ctx.code, nm, price, ctx.kind === 'qr' ? 'qr' : 'ean', null, ctx.show); l.qty = Math.max(1, qty);
     closeItem(); afterChange(l, 'Aggiunto', 'add');
@@ -1160,8 +1242,8 @@ $('item-form').addEventListener('submit', e => {
     snapshot();
     l.name = name || l.name; l.price = price; l.qty = qty;
     if(!demo && $('item-remember').checked){
-      if(l.kind === 'ean' || l.kind === 'qr'){ catalog[l.code] = { name: l.name, price: l.price }; saveCat(); }
-      else if(l.kind === 'banco' && l.plu){ catalog['plu:' + l.plu] = { name: l.name, price: 0 }; saveCat(); }
+      if(l.kind === 'ean' || l.kind === 'qr'){ catalog[l.code] = { name: l.name, price: l.price, t: Date.now() }; saveCat(); }
+      else if(l.kind === 'banco' && l.plu){ catalog['plu:' + l.plu] = { name: l.name, price: 0, t: Date.now() }; saveCat(); }
     }
     save(); render(l.id); closeItem();
     toast('Modificato · ' + l.name, qty + ' × ' + euro(l.price) + ' €', { undo:true });
@@ -1169,7 +1251,7 @@ $('item-form').addEventListener('submit', e => {
     const c = catalog[ctx.key]; if(!c){ closeItem(); return; }
     c.name = name || c.name;
     if(!isPluCat){
-      c.price = price;
+      c.price = price; c.t = Date.now();
       cart.forEach(l => { if(l.code === ctx.key){ l.price = price; l.name = c.name; } });
     } else {
       cart.forEach(l => { if(l.kind === 'banco' && 'plu:' + l.plu === ctx.key) l.name = c.name; });
@@ -1248,8 +1330,6 @@ function renderCat(){
   }));
 }
 $('btn-cat').addEventListener('click', () => {
-  $('set-weighed').checked = !!settings.weighed;
-  $('set-sound').checked = !!settings.sound;
   $('cat-search').value = ''; armedKey = null; renderCat();
   $('sheet-cat').hidden = false;
 });
@@ -1504,7 +1584,7 @@ $('bud-form').addEventListener('submit', e => {
 
 /* ---------- lista della spesa ---------- */
 const STOP = new Set(['di','del','della','dei','delle','degli','al','alla','allo','ai','agli','alle','con','per','da','dal','il','lo','la','gli','le','un','una','uno','gr','kg','ml','cl','pz','conf']);
-function normTxt(s){ return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]+/g, ' '); }
+function normTxt(s){ return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]+/g, ' '); }
 function stem(w){ return w.length > 3 ? w.replace(/[aeiou]$/, '') : w; }
 function wordsOf(s){ return normTxt(s).split(/\s+/).filter(w => w.length >= 3 && !STOP.has(w) && !/^\d/.test(w)).map(stem); }
 function nameMatch(listText, prodName){
@@ -1636,7 +1716,7 @@ $('hist-close').addEventListener('click', () => { $('sheet-hist').hidden = true;
 /* file per Excel: tre fogli (spese, articoli, mesi) */
 let xlsxP = null;
 function loadXlsx(){
-  if(!xlsxP){ xlsxP = window.XLSX ? Promise.resolve() : loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'); xlsxP.catch(() => { xlsxP = null; }); }
+  if(!xlsxP){ xlsxP = window.XLSX ? Promise.resolve() : loadScript(window.SAV_LOCAL ? new URL('lib/xlsx.full.min.js', location.href).href : 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'); xlsxP.catch(() => { xlsxP = null; }); }
   return xlsxP;
 }
 function historyRows(){
@@ -1701,6 +1781,206 @@ $('hist-xls').addEventListener('click', async () => {
   b.disabled = false; b.textContent = 'Scarica il file per Excel';
 });
 
+
+/* ---------- app installabile, uso senza rete, backup ---------- */
+const DAY = 86400000;
+let installPrompt = null, swReady = false;
+const isStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+if('serviceWorker' in navigator && LOCAL){
+  navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready).then(() => {
+    swReady = true; refreshSettings(); maybeWarmOffline();
+  }).catch(() => {});
+  navigator.serviceWorker.addEventListener('message', e => {
+    if(e.data && e.data.type === 'update-ready') toast('Nuova versione dell\'app pronta', 'Tocca Aggiorna per usarla', { action:{ label:'Aggiorna', fn: () => location.reload() } });
+  });
+}
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); installPrompt = e; refreshSettings(); updateSettingsDot();
+  if(!settings.installAsked){
+    settings.installAsked = true; saveSet();
+    setTimeout(() => toast('Puoi installarla come app', 'Icona sulla schermata Home, si apre anche senza rete', { action:{ label:'Installa', fn: doInstall } }), 2500);
+  }
+});
+window.addEventListener('appinstalled', () => { installPrompt = null; refreshSettings(); updateSettingsDot(); toast('App installata', 'La trovi nella schermata Home'); });
+window.addEventListener('offline', () => toast('Sei senza rete', LOCAL ? 'L\'app continua a funzionare' : 'Scanner e conto funzionano lo stesso', { tone:'warn' }));
+async function doInstall(){
+  if(!installPrompt){ openSettings(); return; }
+  installPrompt.prompt();
+  try{ await installPrompt.userChoice; }catch(e){}
+  installPrompt = null; refreshSettings(); updateSettingsDot();
+}
+
+/* stato dei componenti salvati per l'uso senza rete */
+async function offlineState(){
+  if(!LOCAL || !swReady || !window.caches) return null;
+  try{
+    const keys = (await (await caches.open('sav-ocr-v1')).keys()).map(r => r.url);
+    const has = s => keys.some(u => u.includes(s));
+    return { ocr: has('worker.min.js') && has('tesseract.min.js') && has('eng.traineddata') && has('lstm.wasm.js') };
+  }catch(e){ return null; }
+}
+let warming = false;
+async function warmOffline(manual){
+  if(warming) return; warming = true; refreshSettings();
+  try{
+    await withTimeout(Promise.all([ocrWorker(), loadXlsx()]), 120000);
+    if(manual) toast('Pronta anche senza rete', 'Ora anche la lettura del cartellino funziona offline');
+  }catch(e){
+    if(manual) toast('Download non riuscito', 'Controlla la connessione e riprova', { tone:'warn' });
+  }
+  warming = false; refreshSettings();
+}
+async function maybeWarmOffline(){
+  const st = await offlineState(); if(!st || st.ocr) return;
+  const c = navigator.connection;
+  if(c && c.type === 'wifi' && !c.saveData) setTimeout(() => warmOffline(false), 4000);   // in Wi-Fi si prepara da sola
+}
+
+/* backup */
+function counts(src){
+  const st = src.stores || [], cats = src.catalogs || {};
+  let prices = 0; for(const k in cats) prices += Object.keys(cats[k] || {}).filter(x => !x.startsWith('plu:')).length;
+  return { stores: st.length, prices, spese: (src.history || []).length, list: (src.list || []).length };
+}
+function countsText(c){
+  return [c.stores + (c.stores === 1 ? ' negozio' : ' negozi'), c.prices + (c.prices === 1 ? ' prezzo' : ' prezzi'),
+          c.spese + (c.spese === 1 ? ' spesa' : ' spese'), c.list + (c.list === 1 ? ' voce in lista' : ' voci in lista')].join(' · ');
+}
+function backupData(){
+  return { app:'spesa-al-volo', v:1, date: new Date().toISOString(),
+    data:{ stores, catalogs, cur: curStore, settings, list: shopList, history, cart: demo ? [] : cart } };
+}
+function backupFile(){
+  const name = 'Spesa al Volo - backup ' + new Date().toISOString().slice(0, 10) + '.json';
+  return { name, blob: new Blob([JSON.stringify(backupData())], { type:'application/json' }) };
+}
+function backupDone(){ settings.lastBackup = Date.now(); saveSet(); refreshSettings(); updateSettingsDot(); }
+function backupOverdue(){ return (history.length > 0 || stores.length > 0) && Date.now() - (settings.lastBackup || 0) > 14 * DAY; }
+function updateSettingsDot(){ $('settings-dot').hidden = !(backupOverdue() || (installPrompt && !isStandalone())); }
+$('bk-save').addEventListener('click', async () => {
+  const f = backupFile();
+  try{ await saveFile(f.name, f.blob); backupDone(); toast('Backup salvato', f.name); }
+  catch(e){ if(!e || e.code !== 'declined') toast('Non riesco a salvare il file qui', 'Prova con «Invia o salva su Drive»', { tone:'warn' }); }
+});
+$('bk-share').addEventListener('click', async () => {
+  const f = backupFile(), file = new File([f.blob], f.name, { type:'application/json' });
+  try{ await navigator.share({ files:[file], title:'Backup Spesa al Volo' }); backupDone(); toast('Backup inviato', 'Controlla che sia arrivato su Drive o nella chat'); }
+  catch(e){ if(e && e.name !== 'AbortError') toast('Condivisione non riuscita', 'Usa «Salva backup»', { tone:'warn' }); }
+});
+let pendingRestore = null;
+$('bk-file').addEventListener('change', async e => {
+  const f = e.target.files && e.target.files[0]; e.target.value = '';
+  if(!f) return;
+  let j = null;
+  try{ j = JSON.parse(await f.text()); }catch(err){}
+  if(!j || j.app !== 'spesa-al-volo' || !j.data){ toast('Questo file non è un backup di Spesa al Volo', f.name, { tone:'warn' }); return; }
+  pendingRestore = j.data;
+  const d = new Date(j.date);
+  $('bk-restore-t').textContent = 'Backup del ' + d.toLocaleDateString('it-IT') + ' alle ' + d.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' }) +
+    ': ' + countsText(counts(j.data)) + '. Vuoi unirlo ai dati di questo telefono o sostituirli?';
+  $('bk-restore').hidden = false;
+});
+$('bk-cancel').addEventListener('click', () => { pendingRestore = null; $('bk-restore').hidden = true; });
+function persistAll(){ saveStores(); saveCat(); saveList(); saveHist(); saveSet(); save(); store.set(KEY.cur, curStore); store.set(KEY.seen, true); }
+function afterRestore(msg, sub){
+  catalog = catalogs[curStore || '_'] || (catalogs[curStore || '_'] = {});
+  persistAll(); pendingRestore = null; $('bk-restore').hidden = true;
+  budgetLevel = 0; lastBudLevel = null;
+  updateStoreBar(); render(); refreshSettings(); updateSettingsDot();
+  feedback('add'); toast(msg, sub);
+}
+$('bk-replace').addEventListener('click', () => {
+  const d = pendingRestore; if(!d) return;
+  stores = Array.isArray(d.stores) ? d.stores : [];
+  catalogs = d.catalogs && typeof d.catalogs === 'object' ? d.catalogs : {};
+  curStore = d.cur && stores.some(s => s.id === d.cur) ? d.cur : null;
+  shopList = Array.isArray(d.list) ? d.list : [];
+  history = Array.isArray(d.history) ? d.history : [];
+  cart = Array.isArray(d.cart) ? d.cart : []; demo = false; undoState = null;
+  seq = cart.reduce((m, l) => Math.max(m, l.n || 0), 0);
+  const keep = { installAsked: settings.installAsked, gps: settings.gps };
+  Object.assign(settings, d.settings || {}, keep, { lastBackup: Date.now() });
+  afterRestore('Dati ripristinati', countsText(counts({ stores, catalogs, history, list: shopList })));
+});
+$('bk-merge').addEventListener('click', () => {
+  const d = pendingRestore; if(!d) return;
+  const map = {}; let newStores = 0, added = 0, updated = 0, newSpese = 0;
+  for(const s of d.stores || []){
+    let local = stores.find(x => x.id === s.id) ||
+      stores.find(x => normTxt(x.name) === normTxt(s.name) && (x.lat == null || s.lat == null || metres(x.lat, x.lon, s.lat, s.lon) < 300));
+    if(!local){ local = Object.assign({}, s); stores.push(local); newStores++; }
+    else if(local.lat == null && s.lat != null){ local.lat = s.lat; local.lon = s.lon; }
+    map[s.id] = local.id;
+  }
+  for(const [sid, cat] of Object.entries(d.catalogs || {})){
+    const lid = sid === '_' ? (curStore || '_') : map[sid]; if(!lid) continue;
+    const dest = catalogs[lid] || (catalogs[lid] = {});
+    for(const [k, v] of Object.entries(cat || {})){
+      if(!v) continue;
+      const mine = dest[k];
+      if(!mine){ dest[k] = v; if(!k.startsWith('plu:')) added++; }
+      else if((v.t || 0) > (mine.t || 0)){ dest[k] = v; if(!k.startsWith('plu:')) updated++; }
+    }
+  }
+  const ids = new Set(history.map(x => x.id));
+  for(const x of d.history || []){ if(!ids.has(x.id)){ history.push(Object.assign({}, x, { storeId: map[x.storeId] || x.storeId })); newSpese++; } }
+  history.sort((a, b) => new Date(b.date) - new Date(a.date));
+  for(const it of d.list || []){ if(!shopList.some(x => normTxt(x.text) === normTxt(it.text))) shopList.push(Object.assign({}, it, { code:null, manual:false })); }
+  afterRestore('Dati uniti', [newStores ? newStores + ' negozi nuovi' : null, added + ' prezzi nuovi', updated ? updated + ' aggiornati' : null, newSpese ? newSpese + ' spese' : null].filter(Boolean).join(' · '));
+});
+
+/* foglio impostazioni */
+async function refreshSettings(){
+  if($('sheet-settings').hidden) return;
+  // app
+  const inst = isStandalone();
+  $('inst-ic').dataset.ok = inst ? '1' : '0';
+  $('inst-t').textContent = inst ? 'App installata' : 'Installa l\'app';
+  $('inst-btn').hidden = inst || !installPrompt;
+  $('inst-s').textContent = inst ? 'La stai usando dalla schermata Home'
+    : !LOCAL ? 'Disponibile aprendo l\'app dal link GitHub'
+    : installPrompt ? 'Icona sulla schermata Home, schermo intero'
+    : isIOS ? 'In Safari tocca Condividi e poi «Aggiungi alla schermata Home»'
+    : 'Dal menu del browser (⋮) scegli «Installa app» o «Aggiungi a schermata Home»';
+  // senza rete
+  const st = await offlineState();
+  const offOk = !!(st && st.ocr);
+  $('off-ic').dataset.ok = offOk ? '1' : '0';
+  $('off-btn').hidden = !st || offOk;
+  $('off-btn').disabled = warming; $('off-btn').textContent = warming ? 'Scarico…' : 'Scarica';
+  $('off-s').textContent = !LOCAL ? 'Disponibile aprendo l\'app dal link GitHub'
+    : !st ? 'Si attiva dopo la prima apertura dal link GitHub'
+    : offOk ? 'Tutto pronto: scanner, cartellino ed Excel funzionano anche senza campo'
+    : warming ? 'Sto scaricando la lettura del cartellino…'
+    : 'Scanner e conto sì. Per il cartellino scarica circa 8 MB, meglio in Wi-Fi';
+  // backup
+  $('bk-sum').textContent = 'Su questo telefono: ' + countsText(counts({ stores, catalogs, history, list: shopList }));
+  const lb = settings.lastBackup || 0, days = Math.floor((Date.now() - lb) / DAY);
+  $('bk-last').dataset.level = backupOverdue() ? 'warn' : 'ok';
+  $('bk-last').textContent = !lb ? 'Non hai ancora fatto un backup'
+    : 'Ultimo backup: ' + (days === 0 ? 'oggi' : days === 1 ? 'ieri' : days + ' giorni fa') + (backupOverdue() ? ' · conviene rifarlo' : '');
+  let canShare = false;
+  try{ canShare = !!(navigator.canShare && navigator.canShare({ files:[new File(['{}'], 'b.json', { type:'application/json' })] })); }catch(e){}
+  $('bk-share').hidden = !canShare;
+  // lettura
+  $('set-weighed').checked = !!settings.weighed;
+  $('set-sound').checked = !!settings.sound;
+}
+function openSettings(){ $('bk-restore').hidden = true; pendingRestore = null; $('sheet-settings').hidden = false; refreshSettings(); }
+$('btn-settings').addEventListener('click', openSettings);
+$('set-close').addEventListener('click', () => { $('sheet-settings').hidden = true; });
+$('inst-btn').addEventListener('click', doInstall);
+$('off-btn').addEventListener('click', () => warmOffline(true));
+
+/* chiede al telefono di non cancellare i dati da solo */
+async function askPersist(){
+  try{ if(navigator.storage && navigator.storage.persist && !(await navigator.storage.persisted())) await navigator.storage.persist(); }catch(e){}
+}
+if(LOCAL && (stores.length || history.length)) askPersist();
+updateSettingsDot();
+
 /* ---------- copia lista, nuova spesa, articolo libero ---------- */
 function listText(){
   const t = totals();
@@ -1740,6 +2020,11 @@ $('btn-new-save').addEventListener('click', () => {
   $('confirm-new').hidden = true; setRemoveMode(false); render();
   feedback('add');
   toast('Spesa salvata · ' + euro(r.total) + ' €', r.taken ? r.taken + ' voci prese tolte dalla lista' : 'La trovi nello Storico');
+  if(LOCAL) askPersist();
+  updateSettingsDot();
+  if(history.length >= 3 && backupOverdue()){
+    setTimeout(() => toast('Ti conviene fare un backup', settings.lastBackup ? 'L\'ultimo è di oltre due settimane fa' : 'Così non perdi listini e storico', { tone:'warn', action:{ label:'Backup', fn: openSettings } }), 3600);
+  }
 });
 $('btn-free').addEventListener('click', () => openItem({ mode:'free' }));
 
@@ -1752,10 +2037,11 @@ document.addEventListener('keydown', e => {
   else if(!$('sheet-budget').hidden) $('sheet-budget').hidden = true;
   else if(!$('sheet-list').hidden) $('sheet-list').hidden = true;
   else if(!$('sheet-hist').hidden) $('sheet-hist').hidden = true;
+  else if(!$('sheet-settings').hidden) $('sheet-settings').hidden = true;
   else if(!$('sheet-copy').hidden) $('sheet-copy').hidden = true;
   else if(!$('sheet-cat').hidden) $('sheet-cat').hidden = true;
 });
-['sheet-item','sheet-cat','sheet-copy','sheet-budget','sheet-list','sheet-hist'].forEach(id => {
+['sheet-item','sheet-cat','sheet-copy','sheet-budget','sheet-list','sheet-hist','sheet-settings'].forEach(id => {
   $(id).addEventListener('click', e => { if(e.target === $(id)){ if(id === 'sheet-item') closeItem(); else $(id).hidden = true; } });
 });
 
@@ -2012,11 +2298,14 @@ $('photo').addEventListener('change', async e => {
 
 
 /* ---------- prezzo dal cartellino (lettura del testo con Tesseract) ---------- */
-const TESS = {
+const here = p => new URL(p, location.href).href;
+const TESS = LOCAL ? {
+  js: here('ocr/tesseract.min.js'), worker: here('ocr/worker.min.js'), core: here('ocr/core'), lang: here('ocr/lang'), blob: false
+} : {
   js:     'https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/tesseract.min.js',
   worker: 'https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/worker.min.js',
   core:   'https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0',
-  lang:   'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int'
+  lang:   'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int', blob: true
 };
 let ocrP = null, ocrProgress = null;
 function loadScript(src){
@@ -2027,7 +2316,7 @@ function ocrWorker(){
   if(!ocrP){
     ocrP = (async () => {
       if(!window.Tesseract) await loadScript(TESS.js);
-      return Tesseract.createWorker('eng', 1, { workerPath: TESS.worker, corePath: TESS.core, langPath: TESS.lang,
+      return Tesseract.createWorker('eng', 1, { workerPath: TESS.worker, corePath: TESS.core, langPath: TESS.lang, workerBlobURL: TESS.blob,
         logger: m => { if(ocrProgress) ocrProgress(m); } });
     })();
     ocrP.catch(() => { ocrP = null; });
