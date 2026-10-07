@@ -225,6 +225,8 @@ button{cursor:pointer}
 .rc-row .m{grid-column:1/-1;font-size:12.5px;color:var(--muted);font-family:var(--f-num);overflow-wrap:anywhere}
 .rc-row .btn{grid-column:1/-1;justify-self:start;min-height:34px;font-size:12.5px;padding:0 10px}
 .rc-ok summary{cursor:pointer;font-size:12px;letter-spacing:.1em;font-weight:700;color:var(--go);padding:4px 0}
+.rc-doubt summary{color:var(--muted)}
+.rc-doubt .hint{margin:4px 0 6px}
 .hist-rc{color:var(--go);font-weight:600}
 .hist-rc.is-warn{color:var(--laser)}
 .add-free{width:100%;margin-top:10px;border-style:dashed;color:var(--muted)}
@@ -2049,9 +2051,12 @@ $('hist-xls').addEventListener('click', async () => {
 
 
 /* ---------- scontrino: lettura delle righe e abbinamento con il conto ---------- */
-const RC_SKIP = /\b(SUB\s?TOTALE|TOTALE|CONTANT[EI]|RESTO|PAGAMENTO|PAGATO|BANCOMAT|CARTA|ELETTRONIC|IMPONIBILE|DI\s?CUI|IVA\b|P\.?\s?IVA|PARTITA|DOCUMENTO|COMMERCIALE|PRESTAZIONE|VENDITA|DESCRIZIONE|PREZZO\s?\(|SCONTRINO|CASSA|CASSIER|OPERATORE|NUMERO|DOC\.?\s?N|RT\s?\d|MATRICOLA|ARTICOLI|N\.?\s?PEZZI|TEL\.?|VIA\b|PIAZZA|GRAZIE|ARRIVEDERCI|SALDO\s?PUNTI|PUNTI|NON\s?RISCOSSO|RESO\b|CODICE\s?LOTTERIA)\b/i;
+const RC_SKIP = /\b(SUB\s?TOTALE|TOTALE|CONTANT[EI]|RESTO|PAGAMENTO|PAGATO|BANCOMAT|IMPONIBILE|DI\s?CUI|IVA\b|P\.?\s?IVA|PARTITA|DOCUMENTO|COMMERCIALE|PRESTAZIONE|VENDITA|DESCRIZIONE|PREZZO\s?\(|SCONTRINO|CASSA|CASSIER|OPERATORE|NUMERO|DOC\.?\s?N|RT\s?\d|MATRICOLA|ARTICOLI|N\.?\s?PEZZI|TEL\.?|VIA\b|PIAZZA|GRAZIE|ARRIVEDERCI|SALDO\s?PUNTI|PUNTI|NON\s?RISCOSSO|RESO\b|CODICE\s?LOTTERIA)\b/i;
 const RC_DISC = /\b(SCONTO|SC\.|PROMO|OFFERTA|BUONO|COUPON|RIDUZIONE|RIBASSO|-\s?\d{1,2}\s?%)\b/i;
-const RC_TOTAL = /\bTOTALE\b(?!\s*(?:IVA|IMPONIBILE|PEZZI|ARTICOLI))|IMPORTO\s+PAGATO/i;
+/* righe di pagamento (buoni pasto, contanti, carte) e arrotondamento: non sono articoli */
+const RC_PAY = /^(?:PAGAMENTO|PAGATO|CONTANT|RESTO|BANCOMAT|POS\b|CARTA\s*(?:DI\s*)?(?:CREDITO|DEBITO|BANCOMAT|PAGOBANCOMAT)|PAGOBANCOMAT|BP\b|B\.\s?P\.|BUONI|BUONO\s?PASTO|TICKET|EDENRED|PELLEGRINI|SODEXO|DAY\s?RISTOSERVICE|SATISPAY|ASSEGNO|ELETTRONIC|EURO$|EUR$|CONTANTE$)/i;
+const RC_ROUND = /ARROT|\bARRO\b|\bARR\.|D\.?\s?L\.?\s?N?\.?\s?\d{2}\s?\/\s?20\d\d|\b50\/2017\b|\b60\/2017\b/i;
+const RC_TOTAL = /\bTOTALE\b(?!\s*(?:IVA|IMPONIBILE|PEZZI|ARTICOLI))|IMPORTO\s+PAGAT|COMPLESS/i;
 
 function rcFixDigits(s){                       // confusioni tipiche dell'OCR dentro i numeri
   return s.replace(/[Oo]/g, '0').replace(/[lI|]/g, '1').replace(/S/g, '5').replace(/B/g, '8');
@@ -2070,9 +2075,15 @@ function rcSplit(line){
   s = s.replace(/(\d[,.]\s?\d{2,3})\s+(?:[A-Z]{1,2}|\d{1,2}\s?%)$/i, '$1');      // codice IVA dopo l'importo
   const m = s.match(/(-\s?)?([0-9OoSlI|B]{1,4}\s?[,.]\s?[0-9OoSlI|B]{2,3})$/);
   if(!m) return { desc: s, amount: null };
+  if(/[,.]\s?00[43]$/.test(m[2])) return { desc: s, amount: null };              // "10,004" = aliquota "10,00%", non un prezzo
   const amount = rcAmount((m[1] ? '-' : '') + m[2]);
   let desc = s.slice(0, m.index).trim();
-  desc = desc.replace(/\b\d{1,2}(?:[,.]\d{1,2})?\s?[%3]?\s*$/, '').replace(/\s[A-Z]$/, '').trim();   // aliquota IVA (anche "4%" letto "43")
+  desc = desc.replace(/\s+\d{1,2}[,.]\d{0,2}\s?[%43]?\s*$/, '')            // aliquota IVA "10,00%" letta "10,004" o "10,"
+             .replace(/\b\d{1,2}(?:[,.]\d{1,2})?\s?[%3]?\s*$/, '')            // "4%" letto "43"
+             .replace(/\s[A-Z]$/, '')
+             .replace(/[~_=|«»"]+/g, ' ').replace(/\s+/g, ' ').trim()
+             .replace(/^(?:[^A-Za-z0-9À-ÿ\s]+\s*|\S{1,2}\s+)+(?=\S{3,})/, '')   // sporcizia a inizio riga: "Y ", "1 T ", "~ T "
+             .trim();
   return { desc, amount };
 }
 /* riga quantità: "2 x 0,89", "3 PZ X 1,29", "0,345 KG x 12,90" */
@@ -2093,9 +2104,10 @@ function rcQty(line){
 function rcRepair(entries, total){
   const sum = () => entries.reduce((s, e) => s + e.cents, 0);
   if(total == null || sum() === total) return;
+  const SWAP = { '6':'058', '5':'6', '8':'360', '3':'8', '0':'68', '1':'7', '7':'1', '9':'0' };
   const alts = e => {
     const sign = e.cents < 0 ? -1 : 1, str = String(Math.abs(e.cents)), out = [];
-    for(let i = 0; i < str.length; i++) if(str[i] === '6') out.push(sign * parseInt(str.slice(0, i) + '0' + str.slice(i + 1), 10));
+    for(let i = 0; i < str.length; i++) for(const c of SWAP[str[i]] || '') out.push(sign * parseInt(str.slice(0, i) + c + str.slice(i + 1), 10));
     if(str.length >= 2 && str.includes('6')) out.push(sign * parseInt(str.replace(/6/g, '0'), 10));
     return out;
   };
@@ -2105,24 +2117,77 @@ function rcRepair(entries, total){
     for(let j = i + 1; j < entries.length; j++) for(const v2 of alts(entries[j]))
       if(base - entries[i].cents - entries[j].cents + v1 + v2 === total){ entries[i].cents = v1; entries[j].cents = v2; entries[i].fixed = entries[j].fixed = true; return; }
 }
-function parseReceipt(lines){
-  // 1) righe utili: articoli, sconti, quantità, totale
-  const seq = []; let total = null;
+/* righe ricostruite dalle parole lette (con la loro posizione): regge foto storte, scontrini curvi e sfondi con disegni */
+function rcLinesFromWords(ws){
+  const AMT = /^-?\d{1,4}[,.]\d{2}%?$/;
+  ws = ws.filter(w => /[A-Za-z0-9]/.test(w.t)).map(w => Object.assign({}, w, { h: w.y1 - w.y0, cy: (w.y0 + w.y1) / 2, cx: (w.x0 + w.x1) / 2 }));
+  const anch = ws.filter(w => w.c >= 70 && (w.t.replace(/[^A-Za-z]/g, '').length >= 3 || AMT.test(w.t)));
+  if(anch.length < 4) return null;
+  const hs = anch.map(w => w.h).sort((a, b) => a - b), Hm = hs[hs.length >> 1];
+  const x0s = anch.map(w => w.x0).sort((a, b) => a - b), x1s = anch.map(w => w.x1).sort((a, b) => a - b);
+  const L = x0s[Math.floor(x0s.length * 0.03)] - Hm, R = x1s[Math.max(0, Math.ceil(x1s.length * 0.97) - 1)] + Hm;
+  const keep = ws.filter(w => w.h >= 0.3 * Hm && w.h <= 2.8 * Hm && w.x1 >= L && w.x0 <= R && (w.c >= 35 || AMT.test(w.t)));
+  // pendenza residua delle righe: quella che allinea meglio i centri delle parole
+  let best = 0, bs = -1;
+  for(let i = -60; i <= 60; i++){
+    const s = i * 0.002, cnt = new Map();
+    for(const w of keep){ const b = Math.round((w.cy - s * w.cx) / (Hm / 3)); cnt.set(b, (cnt.get(b) || 0) + 1); }
+    let q = 0; for(const v of cnt.values()) q += v * v;
+    if(q > bs){ bs = q; best = s; }
+  }
+  keep.forEach(w => { w.ay = w.cy - best * w.cx; });
+  keep.sort((a, b) => a.ay - b.ay);
+  const lines = [];
+  for(const w of keep){
+    const l = lines[lines.length - 1];
+    if(l && Math.abs(w.ay - l.ay) < 0.5 * Hm){ l.w.push(w); l.ay = l.w.reduce((s, x) => s + x.ay, 0) / l.w.length; }
+    else lines.push({ ay: w.ay, w: [w] });
+  }
+  return lines.map(l => l.w.sort((a, b) => a.x0 - b.x0).map(x => x.t).join(' '));
+}
+function parseReceipt(lines, hint){
+  // righe spezzate: descrizione senza prezzo seguita da un prezzo senza descrizione → una riga sola
+  const fixed = [];
+  for(let i = 0; i < lines.length; i++){
+    const a = String(lines[i] || '').trim(), b = String(lines[i + 1] || '').trim();
+    const sa = rcSplit(a), sb = rcSplit(b);
+    const lettersA = sa.desc.replace(/[^A-Za-z]/g, '').length, lettersB = sb.desc.replace(/[^A-Za-z]/g, '').length;
+    if(sa.amount == null && lettersA >= 3 && sb.amount != null && lettersB < 3 && !RC_SKIP.test(a) && !RC_TOTAL.test(a) && !RC_PAY.test(a) && !/SUB\s?-?\s?TOTAL/i.test(a)){
+      fixed.push(a + ' ' + b); i++;
+    } else fixed.push(a);
+  }
+  lines = fixed;
+  // 1) righe utili: articoli, sconti, quantità, candidati al totale
+  const seq = [], totals = []; let stage = 0, globalDisc = 0, started = false;      // 0 articoli · 1 dopo il subtotale · 2 dopo il totale
   for(const raw of lines){
     const line = String(raw || '').trim();
+    if(/DESCRIZIONE|PREZZO\s?\(/i.test(line)) started = true;           // intestazione delle colonne: da qui gli articoli
     if(line.length < 3) continue;
+    const { desc, amount } = rcSplit(line);
+    if(/SUB\s?-?\s?TOTAL/i.test(line)){ if(amount != null && amount > 0) totals.push({ amount, strong: false, sub: true }); stage = Math.max(stage, 1); continue; }
+    if(RC_TOTAL.test(line)){ if(amount != null && amount > 0) totals.push({ amount, strong: /COMPLESS/i.test(line) }); if(!/IMPORTO\s+PAGAT/i.test(line)) stage = 2; continue; }
+    if(stage === 2) continue;
+    if(stage === 1){ if(amount != null && (amount < 0 || RC_DISC.test(desc))) globalDisc += Math.abs(amount); continue; }
     const q = rcQty(line);
     if(q && !/[A-Z]{4,}/i.test(line.replace(/\bKG\b|\bPZ\b/gi, ''))){ seq.push({ kind:'qty', q }); continue; }
-    const { desc, amount } = rcSplit(line);
-    if(RC_TOTAL.test(line) && !/SUB\s?TOTALE/i.test(line)){ if(amount != null && amount > 0 && (total == null || /COMPLESSIVO|EURO|PAGATO/i.test(line) || amount >= total)) total = amount; continue; }
-    if(amount == null || RC_SKIP.test(desc)) continue;
+    if(amount == null || RC_SKIP.test(desc) || RC_PAY.test(desc) || RC_PAY.test(line.replace(/^[^A-Za-z]+/, '')) || RC_ROUND.test(line)) continue;
     const letters = desc.replace(/[^A-Za-zÀ-ÿ]/g, '');
     if(amount < 0 || (RC_DISC.test(desc) && letters.length < 14)){ seq.push({ kind:'disc', desc, cents: -Math.abs(amount) }); continue; }
-    if(letters.length < 3) continue;
+    if(letters.length < 3){
+      if(started && amount > 0 && /^[\d\s,.%A-Za-z]*$/.test(desc)) seq.push({ kind:'item', desc:'', cents: amount });   // nome illeggibile, prezzo sì
+      continue;
+    }
+    started = true;
     seq.push({ kind:'item', desc, cents: amount });
   }
-  // 2) controllo con il totale
-  rcRepair(seq.filter(e => e.kind !== 'qty'), total);
+  // 2) il totale: quello che coincide con il tuo conto o con la somma delle righe; altrimenti il "complessivo"
+  const rows = seq.filter(e => e.kind !== 'qty'), rowSum = rows.reduce((s, e) => s + e.cents, 0);
+  const maxItem = rows.reduce((m, e) => Math.max(m, e.cents), 0);
+  const plaus = totals.filter(t => t.amount >= maxItem && t.amount >= rowSum * 0.5);
+  const pick = (hint != null && plaus.find(t => Math.abs(t.amount - hint) <= 2)) || plaus.find(t => Math.abs(t.amount - (rowSum - globalDisc)) <= 2)
+            || plaus.find(t => t.strong) || plaus.find(t => !t.sub) || plaus.sort((a, b) => b.amount - a.amount)[0];
+  const total = pick ? pick.amount : null;
+  rcRepair(rows, total == null ? null : total + globalDisc);
   // 3) articoli con quantità e sconti
   const items = []; let pending = null;
   for(const e of seq){
@@ -2146,8 +2211,8 @@ function parseReceipt(lines){
     pending = null;
     items.push(it);
   }
-  const sum = items.reduce((s, x) => s + x.amount, 0);
-  return { items, total, sum };
+  const sum = items.reduce((s, x) => s + x.amount, 0) - globalDisc;
+  return { items, total, sum, globalDisc };
 }
 /* più foto dello stesso scontrino: unisce le righe saltando la parte sovrapposta */
 function rcNormLine(s){ return String(s || '').toUpperCase().replace(/\s+/g, '').replace(/6/g, '0').replace(/O/g, '0').replace(/[^A-Z0-9,.\-]/g, ''); }
@@ -2171,7 +2236,7 @@ function mergeLines(prev, next){
 
 /* somiglianza tra la descrizione abbreviata dello scontrino e il nome nel conto */
 function rcTokens(s){
-  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/(\d)\s+(g|gr|kg|ml|cl|l|lt|pz)\b/g, '$1$2').replace(/['’.]/g, ' ').replace(/[^a-z0-9 ]+/g, ' ')
     .split(/\s+/).filter(w => w.length >= 2 && !/^(di|del|della|al|alla|con|per|da|il|la|le|lo|gli|un|una|e)$/.test(w));
 }
@@ -2219,12 +2284,16 @@ function matchReceipt(rItems, cartLines){
   }
   // 2) nome molto simile ma prezzo diverso
   for(const p of pairs){ if(!p.rc.cart && p.c.left > 0 && p.s >= 0.55) take(p.rc, p.c, 'price'); }
-  // 3) stesso importo, nome non riconosciuto: solo se l'importo è unico
-  for(const rc of recs){
-    if(rc.cart) continue;
-    const cands = cart.filter(c => c.left > 0 && near(rc.r.unit, c.line.price));
-    const sameR = recs.filter(x => !x.cart && near(x.r.unit, rc.r.unit));
-    if(cands.length === 1 && sameR.length === 1) take(rc, cands[0], 'byprice');
+  // 3) stesso prezzo, nome non riconosciuto (es. "FR.FAR/MAND.BIO" × 3 e "Biscotti" 3 × 3,60):
+  //    abbina se nessun altro articolo del conto ha lo stesso prezzo e le quantità tornano
+  for(const c of cart){
+    if(c.left <= 0) continue;
+    if(cart.some(o => o !== c && o.left > 0 && near(o.line.price, c.line.price))) continue;
+    const same = recs.filter(x => !x.cart && (near(x.r.unit, c.line.price) || (x.r.qty === 1 && !x.r.qtyFixed && [2, 3, 4, 5, 6].some(n => n <= c.left && near(x.r.amount, n * c.line.price)))));
+    if(!same.length) continue;
+    same.forEach(x => { if(!near(x.r.unit, c.line.price)){ const n = Math.round(x.r.amount / c.line.price); x.r.qty = n; x.r.unit = Math.round(x.r.amount / n); } });
+    const q = same.reduce((s, x) => s + x.r.qty, 0);
+    if(q <= c.left) same.forEach(x => take(x, c, 'byprice'));
   }
   // 4) righe ripetute sullo scontrino oltre la quantità del conto
   for(const rc of recs){
@@ -2242,11 +2311,11 @@ function matchReceipt(rItems, cartLines){
     const disc = real.reduce((s, x) => s + (x.r.disc || 0), 0);
     if(!near(paidUnit, c.line.price)){
       const diff = (paidUnit - c.line.price) * Math.min(qtyOn, c.line.qty);
-      out.price.push({ line: c.line, paid: paidUnit, diff, disc, desc: real[0].r.desc, how: real[0].how });
+      out.price.push({ line: c.line, paid: paidUnit, diff, disc, desc: (real.find(x => x.r.desc) || real[0]).r.desc, how: real[0].how });
       if(diff > 0) out.overpaid += diff; else out.saved += -diff;
-    } else out.ok.push({ line: c.line, desc: real[0].r.desc, disc, how: real[0].how });
+    } else out.ok.push({ line: c.line, desc: (real.find(x => x.r.desc) || real[0]).r.desc, disc, how: real[0].how });
     if(qtyOn < c.line.qty) out.missing.push({ line: c.line, qty: c.line.qty - qtyOn, partial: true });
-    if(qtyOn > c.line.qty){ out.double.push({ line: c.line, desc: real[0].r.desc, extra: qtyOn - c.line.qty, amount: paidUnit * (qtyOn - c.line.qty) }); out.overpaid += paidUnit * (qtyOn - c.line.qty); }
+    if(qtyOn > c.line.qty){ out.double.push({ line: c.line, desc: (real.find(x => x.r.desc) || real[0]).r.desc, extra: qtyOn - c.line.qty, amount: paidUnit * (qtyOn - c.line.qty) }); out.overpaid += paidUnit * (qtyOn - c.line.qty); }
   }
   for(const rc of recs){
     if(rc.how === 'double'){ out.double.push({ line: rc.cart.line, desc: rc.r.desc, extra: rc.r.qty, amount: rc.r.amount }); out.overpaid += rc.r.amount; }
@@ -2272,13 +2341,14 @@ function rcOtsu(g){
   }
   return th;
 }
-/* zona chiara più grande = lo scontrino; restituisce riquadro e maschera "dentro lo scontrino" */
-function rcPaper(canvas){
-  const k = Math.min(1, 420 / Math.max(canvas.width, canvas.height));
-  const w = Math.max(1, Math.round(canvas.width * k)), h = Math.max(1, Math.round(canvas.height * k));
-  const c = document.createElement('canvas'); c.width = w; c.height = h;
-  const ctx = c.getContext('2d', { willReadFrequently:true }); ctx.drawImage(canvas, 0, 0, w, h);
-  const g = rcGray(ctx, w, h), th = rcOtsu(g);
+/* lo scontrino: la zona chiara, uniforme e compatta più grande (scarta tovaglie chiare con disegni) */
+function rcMaxFilter(g, w, h, r){
+  const t = new Uint8Array(g.length), o = new Uint8Array(g.length);
+  for(let y = 0; y < h; y++) for(let x = 0; x < w; x++){ let m = 0; for(let d = -r; d <= r; d++){ const xx = x + d; if(xx >= 0 && xx < w){ const v = g[y*w + xx]; if(v > m) m = v; } } t[y*w + x] = m; }
+  for(let y = 0; y < h; y++) for(let x = 0; x < w; x++){ let m = 0; for(let d = -r; d <= r; d++){ const yy = y + d; if(yy >= 0 && yy < h){ const v = t[yy*w + x]; if(v > m) m = v; } } o[y*w + x] = m; }
+  return o;
+}
+function rcComponent(g, w, h, th){
   const lab = new Int32Array(w * h), stack = []; let id = 0, bestId = 0, bestN = 0;
   for(let p = 0; p < g.length; p++){
     if(g[p] <= th || lab[p]) continue;
@@ -2292,14 +2362,34 @@ function rcPaper(canvas){
     }
     if(n > bestN){ bestN = n; bestId = id; }
   }
-  if(bestN < w * h * 0.12) return { x:0, y:0, w:canvas.width, h:canvas.height, rows:null, k };
-  let x0 = w, y0 = h, x1 = 0, y1 = 0; const rows = new Array(h).fill(null);
+  if(!bestN) return null;
+  let x0 = w, y0 = h, x1 = 0, y1 = 0, span = 0; const rows = new Array(h).fill(null);
   for(let y = 0; y < h; y++) for(let x = 0; x < w; x++){
     if(lab[y*w + x] !== bestId) continue;
     if(x < x0) x0 = x; if(x > x1) x1 = x; if(y < y0) y0 = y; if(y > y1) y1 = y;
     const r = rows[y]; if(!r) rows[y] = [x, x]; else { if(x < r[0]) r[0] = x; if(x > r[1]) r[1] = x; }
   }
-  return { x: x0 / k, y: y0 / k, w: (x1 - x0 + 1) / k, h: (y1 - y0 + 1) / k, rows, k };
+  rows.forEach(r => { if(r) span += r[1] - r[0] + 1; });
+  return { n: bestN, x0, y0, x1, y1, rows, fill: bestN / Math.max(1, span) };
+}
+function rcPaper(canvas, simple){
+  const k = Math.min(1, 420 / Math.max(canvas.width, canvas.height));
+  const w = Math.max(1, Math.round(canvas.width * k)), h = Math.max(1, Math.round(canvas.height * k));
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const ctx = c.getContext('2d', { willReadFrequently:true }); ctx.drawImage(canvas, 0, 0, w, h);
+  const g = rcMaxFilter(rcGray(ctx, w, h), w, h, 2);          // il testo sottile sparisce, i disegni grandi restano
+  const th1 = rcOtsu(g), bright = g.filter(v => v > th1);
+  const th2 = bright.length > 200 ? rcOtsu(bright) : th1;
+  let best = null;
+  for(const th of (simple ? [th1] : [...new Set([th1, Math.round((th1 + th2) / 2), th2])])){
+    const comp = rcComponent(g, w, h, th);
+    if(!comp || comp.n < w * h * 0.06) continue;
+    const score = comp.fill - (comp.n > w * h * 0.85 ? 0.3 : 0);   // tutta la foto chiara: poco credibile come scontrino
+    if(!best || score > best.score + 0.02 || (Math.abs(score - best.score) <= 0.02 && comp.n > best.comp.n)) best = { comp, score };
+  }
+  if(!best) return { x:0, y:0, w:canvas.width, h:canvas.height, rows:null, k };
+  const b = best.comp;
+  return { x: b.x0 / k, y: b.y0 / k, w: (b.x1 - b.x0 + 1) / k, h: (b.y1 - b.y0 + 1) / k, rows: b.rows, k };
 }
 /* inclinazione: l'angolo che rende più "nette" le righe di testo */
 function rcSkew(canvas, paper){
@@ -2346,8 +2436,8 @@ function rcLocalDark(g, W, H, r, C){
 }
 /* foto → immagine pronta per la lettura: scontrino dritto, ritagliato, nero su bianco */
 function rcPrepare(src, opt){
-  opt = Object.assign({ width:1250, bin:true }, opt || {});
-  const p1 = rcPaper(src);
+  opt = Object.assign({ width:1250, bin:true, simple:true, noWhite:true }, opt || {});   // le ombre sullo scontrino rendono rischioso ritagliare di più
+  const p1 = rcPaper(src, opt.simple);
   const ang = rcSkew(src, p1);
   // ruota tutta la foto, poi ritaglia di nuovo lo scontrino ormai dritto
   const a = ang * Math.PI / 180, cs = Math.abs(Math.cos(a)), sn = Math.abs(Math.sin(a));
@@ -2355,7 +2445,7 @@ function rcPrepare(src, opt){
   R.width = Math.round(src.width * cs + src.height * sn); R.height = Math.round(src.width * sn + src.height * cs);
   const rc = R.getContext('2d'); rc.fillStyle = '#000'; rc.fillRect(0, 0, R.width, R.height);
   rc.translate(R.width / 2, R.height / 2); rc.rotate(-a); rc.drawImage(src, -src.width / 2, -src.height / 2);
-  const p2 = rcPaper(R);
+  const p2 = rcPaper(R, opt.simple);
   const mx = p2.w * 0.01, my = p2.h * 0.005;
   const cx = Math.max(0, p2.x + mx), cy = Math.max(0, p2.y + my), cw = Math.min(R.width - cx, p2.w - 2 * mx), ch = Math.min(R.height - cy, p2.h - 2 * my);
   const k = Math.min(2.2, opt.width / Math.max(1, cw));
@@ -2372,10 +2462,19 @@ function rcPrepare(src, opt){
   const m = rcLocalDark(g, W, H, Math.max(10, Math.round(W / 28)), 12);
   const img = oc.getImageData(0, 0, W, H), d = img.data;
   for(let j = 0, i = 0; j < m.length; j++, i += 4){ const v = m[j] ? 0 : 255; d[i] = d[i+1] = d[i+2] = v; d[i+3] = 255; }
+  if(p2.rows && !opt.noWhite){
+    for(let y = 0; y < H; y++){
+      const sy = Math.round((cy + y / k) * p2.k), r = p2.rows[Math.min(p2.rows.length - 1, Math.max(0, sy))];
+      const left = r ? (r[0] + 1.5) / p2.k : Infinity, right = r ? (r[1] - 1.5) / p2.k : -Infinity;
+      for(let x = 0; x < W; x++){
+        const ox = cx + x / k;
+        if(ox < left || ox > right){ const i = (y * W + x) * 4; d[i] = d[i+1] = d[i+2] = 255; }
+      }
+    }
+  }
   oc.putImageData(img, 0, 0);
   return { canvas: out, angle: ang };
 }
-
 
 /* ---------- controllo dello scontrino: schermata ---------- */
 let rcState = { photos: [], lines: [], parsed: null, match: null, total: null, over: 0, issues: 0, done: false, busy: false };
@@ -2408,10 +2507,23 @@ async function rcAddFiles(files){
       ocrProgress = m => { if(m.status === 'recognizing text') rcStatus('Leggo lo scontrino… ' + Math.round((m.progress || 0) * 100) + '%');
                            else if(/load|initial/i.test(m.status || '')) rcStatus('Preparo la lettura del testo, solo la prima volta… ' + Math.round((m.progress || 0) * 100) + '%'); };
       const worker = await withTimeout(ocrWorker(), 90000);
-      await worker.setParameters({ tessedit_pageseg_mode:'6', tessedit_char_whitelist:'', preserve_interword_spaces:'1' });
-      const { data } = await worker.recognize(prep.canvas);
+      // 1ª lettura: parola per parola con la posizione (regge sfondi con disegni e scontrini curvi)
+      await worker.setParameters({ tessedit_pageseg_mode:'11', tessedit_char_whitelist:'', preserve_interword_spaces:'1' });
+      const { data } = await worker.recognize(prep.canvas, {}, { blocks:true, text:true });
+      const ws = [];
+      (data.blocks || []).forEach(b => b.paragraphs.forEach(pa => pa.lines.forEach(l => l.words.forEach(x => ws.push({ t: x.text, c: x.confidence, x0: x.bbox.x0, y0: x.bbox.y0, x1: x.bbox.x1, y1: x.bbox.y1 })))));
+      let lines = rcLinesFromWords(ws) || data.text.split('\n').map(s => s.trim()).filter(Boolean);
+      // se la somma delle righe non torna col totale, prova anche la lettura a blocco unico e tiene la migliore
+      const hint = totals().cents, score = ls => { const pr = parseReceipt(ls, hint); return pr.total == null ? null : Math.abs(pr.sum - pr.total); };
+      const s1 = score(lines);
+      if(s1 != null && s1 > 2){
+        rcStatus('Rileggo lo scontrino in un altro modo…');
+        await worker.setParameters({ tessedit_pageseg_mode:'6' });
+        const alt = (await worker.recognize(prep.canvas)).data.text.split('\n').map(s => s.trim()).filter(Boolean);
+        const s2 = score(alt);
+        if(s2 != null && s2 < s1) lines = alt;
+      }
       ocrProgress = null;
-      const lines = data.text.split('\n').map(s => s.trim()).filter(Boolean);
       const thumb = document.createElement('canvas'), tk = 160 / prep.canvas.width;
       thumb.width = 160; thumb.height = Math.round(prep.canvas.height * tk);
       thumb.getContext('2d').drawImage(prep.canvas, 0, 0, thumb.width, thumb.height);
@@ -2430,12 +2542,14 @@ function rcRecompute(){
   let lines = [], overlaps = [];
   rcState.photos.forEach((p, i) => { if(!i){ lines = p.lines.slice(); return; } const m = mergeLines(lines, p.lines); lines = m.lines; overlaps.push(m.overlap); });
   rcState.lines = lines;
-  rcState.parsed = parseReceipt(lines);
+  const appTot = totals().cents;
+  rcState.parsed = parseReceipt(lines, appTot);
   rcState.total = rcState.parsed.total;
   rcState.match = rcState.parsed.items.length ? matchReceipt(rcState.parsed.items, cart) : null;
   const m = rcState.match;
-  rcState.over = m ? m.overpaid : 0;
-  rcState.issues = m ? m.price.filter(x => x.diff > 0).length + m.double.length + m.extra.length + m.missing.length : 0;
+  rcState.agree = rcState.total != null && Math.abs(rcState.total - appTot) <= 2;     // ±2 cent: arrotondamento dei contanti
+  rcState.over = m && !rcState.agree ? m.overpaid : 0;
+  rcState.issues = m && !rcState.agree ? m.price.filter(x => x.diff > 0).length + m.double.length + m.extra.length + m.missing.length : 0;
   rcState.done = !!(m && rcState.total != null);
   rcButton();
 }
@@ -2486,17 +2600,18 @@ function rcRender(){
   $('rc-sum').replaceChildren(
     tile('SCONTRINO', rTot != null ? euro(rTot) + ' €' : '—'),
     tile('IL TUO CONTO', euro(t.cents) + ' €'),
-    tile('DIFFERENZA', diff == null ? '—' : (diff > 0 ? '+' : diff < 0 ? '−' : '') + euro(Math.abs(diff)) + ' €', diff > 1 ? 'is-bad' : diff != null && Math.abs(diff) <= 1 ? 'is-good' : ''));
-  const v = $('rc-verdict'), partial = rTot != null && Math.abs(pr.sum - rTot) > 1;
+    tile('DIFFERENZA', diff == null ? '—' : (diff > 0 ? '+' : diff < 0 ? '−' : '') + euro(Math.abs(diff)) + ' €', diff > 2 ? 'is-bad' : diff != null && Math.abs(diff) <= 2 ? 'is-good' : ''));
+  const v = $('rc-verdict'), agree = rcState.agree, partial = !agree && rTot != null && Math.abs(pr.sum - rTot) > 2;
   const issues = rcState.issues;
   v.replaceChildren();
-  if(rTot == null){ v.dataset.level = 'warn'; v.append('Non trovo ancora il TOTALE', el('small', null, 'Se lo scontrino continua, aggiungi la foto della parte finale.')); }
+  if(agree){ v.dataset.level = 'ok'; v.append('Il totale coincide: tutto torna', el('small', null, 'Lo scontrino (' + euro(rTot) + ' €) è uguale al tuo conto' + (rTot !== t.cents ? ', a parte l\'arrotondamento dei centesimi' : '') + '. Non c\'è niente da far presente alla cassa.')); }
+  else if(rTot == null){ v.dataset.level = 'warn'; v.append('Non trovo il TOTALE dello scontrino', el('small', null, 'Inquadra bene la riga «TOTALE COMPLESSIVO»: se lo scontrino continua, aggiungi la foto della parte finale.')); }
   else if(m.overpaid > 0){ v.dataset.level = 'bad'; v.append('Possibili ' + euro(m.overpaid) + ' € pagati in più', el('small', null, 'Controlla le righe qui sotto e falle presenti alla cassa o al banco informazioni.')); }
   else if(issues){ v.dataset.level = 'warn'; v.append(issues + (issues === 1 ? ' riga da verificare' : ' righe da verificare'), el('small', null, 'Nessun prezzo più alto del cartellino.')); }
   else { v.dataset.level = 'ok'; v.append('Tutto torna', el('small', null, 'Ogni articolo dello scontrino corrisponde al tuo conto.')); }
   if(partial) v.appendChild(el('small', null, 'Attenzione: la somma delle righe lette (' + euro(pr.sum) + ' €) non torna con il totale. Qualche riga non si legge bene: rifai la foto più da vicino o in più parti.'));
   rcStatus('');
-  const groups = [];
+  const groups = [], doubtful = [];
   const higher = m.price.filter(x => x.diff > 0), lower = m.price.filter(x => x.diff < 0);
   const bad = [];
   higher.forEach(x => bad.push(rcRow(x.line.name, '+' + euro(x.diff) + ' €',
@@ -2504,21 +2619,33 @@ function rcRender(){
     { label:'Usa il prezzo della cassa', fn: () => rcUsePrice(x.line, x.paid) })));
   m.double.forEach(x => bad.push(rcRow(x.line.name, '+' + euro(x.amount) + ' €',
     'Battuto ' + (x.extra === 1 ? 'una volta' : x.extra + ' volte') + ' in più rispetto al tuo conto · ' + x.desc)));
-  if(bad.length) groups.push(rcGroup('DA FAR PRESENTE ALLA CASSA', 'bad', bad));
-  if(m.extra.length) groups.push(rcGroup('SULLO SCONTRINO MA NON NEL TUO CONTO', 'warn', m.extra.map(r =>
-    rcRow(r.desc, euro(r.amount) + ' €', r.qty > 1 ? r.qty + ' × ' + euro(r.unit) : 'Forse un sacchetto o un articolo che non hai sparato',
-      { label:'Aggiungi al conto', fn: () => rcAddExtra(r) }))));
-  if(m.missing.length) groups.push(rcGroup('NEL CONTO MA NON SULLO SCONTRINO', 'warn', m.missing.map(x =>
-    rcRow(x.line.name, euro(x.line.price * x.qty) + ' €', (x.qty > 1 ? x.qty + ' pezzi · ' : '') + (x.partial ? 'sullo scontrino ne trovo meno' : 'non battuto, oppure la riga non si legge bene')))));
+  const extraRows = m.extra.map(r => rcRow(r.desc || 'Riga con il nome illeggibile', euro(r.amount) + ' €', r.qty > 1 ? r.qty + ' × ' + euro(r.unit) : 'Forse un sacchetto o un articolo che non hai sparato',
+      agree ? null : { label:'Aggiungi al conto', fn: () => rcAddExtra(r) }));
+  const missRows = m.missing.map(x => rcRow(x.line.name, euro(x.line.price * x.qty) + ' €', (x.qty > 1 ? x.qty + ' pezzi · ' : '') + (x.partial ? 'sullo scontrino ne trovo meno' : 'non battuto, oppure la riga non si legge bene')));
+  if(agree){
+    // i totali coincidono: le differenze riga per riga sono solo letture incerte della foto
+    doubtful.push(...bad, ...extraRows, ...missRows);
+  } else {
+    if(bad.length) groups.push(rcGroup('DA FAR PRESENTE ALLA CASSA', 'bad', bad));
+    if(extraRows.length) groups.push(rcGroup('SULLO SCONTRINO MA NON NEL TUO CONTO', 'warn', extraRows));
+    if(missRows.length) groups.push(rcGroup('NEL CONTO MA NON SULLO SCONTRINO', 'warn', missRows));
+  }
   const good = [];
   m.ok.filter(x => x.disc).forEach(x => good.push(rcRow(x.line.name, '−' + euro(x.disc) + ' €', 'Sconto applicato alla cassa')));
   lower.forEach(x => good.push(rcRow(x.line.name, '−' + euro(-x.diff) + ' €',
     (x.disc ? 'Sconto applicato alla cassa' : 'Alla cassa costa meno del cartellino') + ' · pagato ' + euro(x.paid) + ' invece di ' + euro(x.line.price),
     x.disc ? null : { label:'Usa il prezzo della cassa', fn: () => rcUsePrice(x.line, x.paid) })));
-  if(good.length) groups.push(rcGroup('SCONTI E RISPARMI', 'good', good));
+  if(good.length && !agree) groups.push(rcGroup('SCONTI E RISPARMI', 'good', good));
+  else if(good.length) doubtful.push(...good);
   if(m.ok.length){
     const d = el('details', 'rc-ok'), s = el('summary', null, 'TUTTO OK · ' + m.ok.length + (m.ok.length === 1 ? ' ARTICOLO' : ' ARTICOLI'));
-    d.appendChild(s); m.ok.forEach(x => d.appendChild(rcRow(x.line.name, euro(x.line.price * x.line.qty) + ' €', 'sullo scontrino: ' + x.desc + (x.how === 'byprice' ? ' (abbinato dal prezzo)' : ''))));
+    d.appendChild(s); m.ok.forEach(x => d.appendChild(rcRow(x.line.name, euro(x.line.price * x.line.qty) + ' €', 'sullo scontrino: ' + (x.desc || 'nome illeggibile') + (x.how === 'byprice' ? ' (abbinato dal prezzo)' : ''))));
+    groups.push(d);
+  }
+  if(doubtful.length){
+    const d = el('details', 'rc-ok rc-doubt'), s = el('summary', null, 'RIGHE LETTE IN MODO INCERTO · ' + doubtful.length);
+    d.append(s, el('p', 'hint', 'Il totale coincide, quindi queste differenze vengono solo dalla lettura della foto (descrizioni abbreviate o cifre poco nitide): non contano.'));
+    doubtful.forEach(r => { r.querySelectorAll('button').forEach(b => b.remove()); d.appendChild(r); });
     groups.push(d);
   }
   $('rc-groups').replaceChildren(...groups);
