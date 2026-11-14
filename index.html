@@ -438,7 +438,37 @@ button{cursor:pointer}
 .pchip.is-top{background:var(--go);color:var(--go-ink);border-color:transparent;font-size:21px}
 .price-flash{animation:flash 1.1s ease-out}
 
+/* ultimi articoli entrati, subito sotto la fotocamera */
+.recent{display:grid;gap:2px}
+.rec-head{display:flex;justify-content:space-between;align-items:center;gap:10px;font-family:var(--f-num);font-size:10.5px;letter-spacing:.12em;color:var(--muted)}
+.rec-all{border:0;background:none;padding:6px 0 6px 8px;font-family:var(--f-ui);font-size:13px;font-weight:600;letter-spacing:0;color:var(--go)}
+.rec-lines{list-style:none;margin:0;padding:0}
+.rec-line{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:2px 10px;padding:7px 0;border-top:1px dashed var(--line)}
+.rec-line.is-flash{animation:flash 1.1s ease-out}
+.rec-name{grid-column:1;border:0;background:none;padding:0;text-align:left;font-weight:600;font-size:14.5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.rec-meta{grid-column:1;grid-row:2;font-family:var(--f-num);font-size:11.5px;color:var(--muted)}
+.rec-sum{grid-column:2;grid-row:1 / span 2;font-family:var(--f-num);font-variant-numeric:tabular-nums;font-weight:700;font-size:15px;white-space:nowrap}
+.rec-line .btn{grid-column:3;grid-row:1 / span 2;min-height:36px;padding:0 10px;font-size:13px;border-color:var(--laser);color:var(--laser)}
+.receipt{scroll-margin-top:200px}
+/* foglio articolo: prezzo grande, tastierino da cassa, il resto in «Altre opzioni» */
+.price-big input{min-height:64px!important;font-size:32px!important;font-weight:700;letter-spacing:-.01em;padding-left:40px!important}
+.price-big span{font-size:20px;left:14px}
+.price-big input.is-keys{border-color:var(--go);box-shadow:0 0 0 2px var(--go-soft)}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.keypad button{min-height:54px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--soft);font-family:var(--f-num);font-size:22px;font-weight:600;color:var(--ink);touch-action:manipulation;-webkit-user-select:none;user-select:none}
+.keypad button:active{background:var(--go-soft);transform:scale(.97)}
+.keypad .k-del{font-size:28px;color:var(--laser)}
+.more{border:1px solid var(--line);border-radius:var(--r-s);padding:0 12px}
+.more summary{display:flex;align-items:center;gap:8px;min-height:46px;cursor:pointer;list-style:none;font-weight:600;font-size:14px}
+.more summary::-webkit-details-marker{display:none}
+.more summary em{font-style:normal;font-weight:400;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.more summary::after{content:"";flex:none;margin-left:auto;width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .2s}
+.more[open] summary::after{transform:rotate(225deg) translateY(-2px)}
+.more-body{display:grid;gap:14px;padding:4px 0 14px}
+.more-body .stepper{width:max-content}
+
 @media (min-width:880px){
+  .recent{display:none!important}
   .app{padding-block:18px 60px}
   .layout{grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:22px;align-items:start}
   .left{position:sticky;top:calc(12px + env(safe-area-inset-top,0px))}
@@ -502,6 +532,11 @@ button{cursor:pointer}
             <p id="idle-msg">Inquadra il codice a barre o il QR code dell'etichetta: ogni lettura entra nel conto e il totale si aggiorna da solo.</p>
             <button class="btn btn-go big" id="btn-start-big" type="button">Avvia scanner</button>
           </div>
+        </div>
+
+        <div class="recent" id="recent" hidden>
+          <div class="rec-head"><span>ULTIMI ENTRATI</span><button class="rec-all" id="recent-all" type="button">Tutto il conto</button></div>
+          <ul class="rec-lines" id="recent-lines"></ul>
         </div>
 
         <div class="controls">
@@ -606,19 +641,16 @@ button{cursor:pointer}
       <input id="item-name" type="text" placeholder="es. Latte intero 1 L" maxlength="60">
       <p class="found" id="item-found" hidden></p>
     </div>
-    <div class="row2">
-      <div class="field" id="item-price-field">
-        <label for="item-price">Prezzo</label>
-        <div class="price-wrap"><span>€</span><input id="item-price" type="text" inputmode="decimal" placeholder="0,00"></div>
-      </div>
-      <div class="field" id="item-qty-field">
-        <label>Quantità</label>
-        <div class="stepper"><button type="button" id="qty-minus" aria-label="Meno uno">−</button><output id="item-qty">1</output><button type="button" id="qty-plus" aria-label="Più uno">+</button></div>
-      </div>
+    <div class="field" id="item-price-field">
+      <label for="item-price">Prezzo</label>
+      <div class="price-wrap price-big"><span>€</span><input id="item-price" type="text" inputmode="numeric" placeholder="0,00"></div>
+      <p class="found" id="item-price-hint">Batti solo le cifre: 1 2 9 diventa 1,29</p>
     </div>
-    <div class="offer-row" id="offer-row" hidden>
-      <label class="check"><input id="item-offer" type="checkbox"><span>In offerta fino al</span></label>
-      <input id="item-offer-until" type="date" aria-label="Data di fine offerta">
+    <div class="keypad" id="item-keys" hidden>
+      <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button>
+      <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button>
+      <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button>
+      <button type="button" data-k="00">00</button><button type="button" data-k="0">0</button><button type="button" class="k-del" data-k="del" aria-label="Cancella l'ultima cifra">⌫</button>
     </div>
     <p class="found" id="item-else" hidden></p>
     <p class="item-info" id="item-info" hidden></p>
@@ -626,7 +658,20 @@ button{cursor:pointer}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9-9-9z"/><circle cx="8" cy="8" r="1.5"/></svg>
       Leggi il prezzo dal cartellino
     </button>
-    <label class="check" id="item-remember-wrap"><input id="item-remember" type="checkbox" checked><span id="item-remember-t">Ricorda il prezzo: la prossima volta che spari questo codice entra da solo</span></label>
+    <details class="more" id="item-more">
+      <summary><span>Altre opzioni</span><em id="item-more-s"></em></summary>
+      <div class="more-body">
+        <div class="field" id="item-qty-field">
+          <label>Quantità</label>
+          <div class="stepper"><button type="button" id="qty-minus" aria-label="Meno uno">−</button><output id="item-qty">1</output><button type="button" id="qty-plus" aria-label="Più uno">+</button></div>
+        </div>
+        <div class="offer-row" id="offer-row" hidden>
+          <label class="check"><input id="item-offer" type="checkbox"><span>In offerta fino al</span></label>
+          <input id="item-offer-until" type="date" aria-label="Data di fine offerta">
+        </div>
+        <label class="check" id="item-remember-wrap"><input id="item-remember" type="checkbox" checked><span id="item-remember-t">Ricorda il prezzo: la prossima volta che spari questo codice entra da solo</span></label>
+      </div>
+    </details>
     <p class="err" id="item-err" hidden></p>
     <div class="panel-actions">
       <button class="btn btn-del" id="item-del" type="button" hidden>Elimina dal conto</button>
@@ -1188,6 +1233,13 @@ function lineNode(l, flashId){
   li.append(name, sum, meta, act);
   return li;
 }
+function recentNode(l, flashId){
+  const li = el('li', 'rec-line' + (l.id === flashId ? ' is-flash' : '')); li.dataset.id = l.id;
+  const name = el('button', 'rec-name', l.name); name.type = 'button'; name.dataset.act = 'edit'; name.title = 'Modifica nome, prezzo o quantità';
+  const t = el('button', 'btn', 'Togli'); t.type = 'button'; t.dataset.act = 'minus'; t.setAttribute('aria-label', 'Togli uno: ' + l.name);
+  li.append(name, el('span', 'rec-meta', l.qty + ' × ' + euro(l.price)), el('span', 'rec-sum', euro(l.price * l.qty)), t);
+  return li;
+}
 function render(flashId){
   const t = totals();
   $('total-v').textContent = euro(t.cents);
@@ -1205,13 +1257,17 @@ function render(flashId){
   ul.replaceChildren(...on.map(l => lineNode(l, flashId)));
   ulOff.replaceChildren(...off.map(l => lineNode(l, flashId)));
   $('off-head').hidden = !off.length;
+  const last = demo ? [] : on.slice(0, 3);     // le ultime entrate restano in vista sotto la fotocamera
+  $('recent').hidden = !last.length;
+  $('recent-lines').replaceChildren(...last.map(l => recentNode(l, flashId)));
+  $('recent-all').textContent = 'Tutto il conto · ' + t.rows + (t.rows === 1 ? ' articolo' : ' articoli') + ' ↓';
   $('empty').hidden = cart.length > 0;
   renderBudget(t.cents);
   renderListCard();
 }
 function onLineClick(e){
   const b = e.target.closest('button[data-act]'); if(!b) return;
-  const li = b.closest('.line'); const line = cart.find(l => l.id === li.dataset.id); if(!line) return;
+  const li = b.closest('[data-id]'); const line = li && cart.find(l => l.id === li.dataset.id); if(!line) return;
   if(b.dataset.act === 'minus'){
     snapshot(); line.qty = Math.max(0, line.qty - 1);
     afterChange(line, line.qty ? 'Tolto uno' : 'Depennato', 'remove');
@@ -1224,6 +1280,8 @@ function onLineClick(e){
 }
 $('lines').addEventListener('click', onLineClick);
 $('lines-off').addEventListener('click', onLineClick);
+$('recent-lines').addEventListener('click', onLineClick);
+$('recent-all').addEventListener('click', () => { const r = document.querySelector('.receipt'); if(r) r.scrollIntoView({ behavior:'smooth', block:'start' }); });
 $('btn-demo-clear').addEventListener('click', () => { clearDemo(); render(); toast('Conto pronto', 'Spara il primo codice'); });
 
 /* ---------- modalità "togli" ---------- */
@@ -1321,7 +1379,7 @@ function openItem(ctx){
       const o = ctx.expired.offer || {};
       title.textContent = o.until ? 'Offerta finita: quanto costa ora?' : 'È ancora in offerta?';
       $('item-name').value = ctx.expired.name || '';
-      $('item-price').value = o.until ? (o.regular ? euro(o.regular) : '') : euro(ctx.expired.price);
+      $('item-price').value = o.until ? (o.regular ? priceTxt(o.regular) : '') : priceTxt(ctx.expired.price);
       $('item-else').textContent = o.until ? 'Era in offerta a ' + euro(ctx.expired.price) + ' € fino al ' + fmtDay(o.until) + (o.regular ? '. Prima costava ' + euro(o.regular) + ' €.' : '. Leggi il nuovo prezzo sul cartellino.')
         : 'L\'hai segnato in offerta a ' + euro(ctx.expired.price) + ' € il ' + fmtDay(o.since) + ': se il prezzo è cambiato, correggilo.';
       $('item-else').hidden = false;
@@ -1343,7 +1401,7 @@ function openItem(ctx){
     const l = cart.find(x => x.id === ctx.id); if(!l) return;
     title.textContent = 'Modifica articolo';
     code.textContent = l.kind === 'manuale' ? 'Inserito a mano' : codeLabel(l.code, l.show) + (l.w ? ' · ' + l.w : '');
-    $('item-name').value = l.name; $('item-price').value = euro(l.price); setQty(l.qty);
+    $('item-name').value = l.name; $('item-price').value = priceTxt(l.price); setQty(l.qty);
     rememberWrap.hidden = l.kind === 'manuale';
     if(l.kind === 'ean' || l.kind === 'qr'){ $('offer-row').hidden = false; setOffer((catalog[l.code] || {}).offer); if(l.offer && !$('item-offer').checked){ $('item-offer').checked = true; if(typeof l.offer === 'string') $('item-offer-until').value = l.offer; } renderItemInfo(l.code); fetchInfoFor(l.code); }
     $('item-remember-t').textContent = l.kind === 'banco'
@@ -1356,19 +1414,51 @@ function openItem(ctx){
     const c = catalog[ctx.key]; if(!c) return;
     title.textContent = isPlu ? 'Nome articolo di banco' : 'Prezzo nel listino';
     code.textContent = isPlu ? 'Banco · art. ' + ctx.key.slice(4) : codeLabel(ctx.key);
-    $('item-name').value = c.name; $('item-price').value = c.price ? euro(c.price) : '';
+    $('item-name').value = c.name; $('item-price').value = c.price ? priceTxt(c.price) : '';
     $('item-price-field').hidden = isPlu; $('item-qty-field').hidden = true;
     rememberWrap.hidden = true;
     $('item-save').textContent = 'Salva nel listino';
     if(!isPlu){ $('offer-row').hidden = false; setOffer(c.offer); renderItemInfo(ctx.key); }
   }
   $('btn-tag').hidden = $('item-price-field').hidden;
+  setupItemSheet(ctx);
   $('sheet-item').hidden = false;
   if(window.matchMedia && matchMedia('(pointer: coarse)').matches) return;   // sul telefono niente tastiera subito: si vede anche «Leggi dal cartellino»
   setTimeout(() => {
     const f = (ctx.mode === 'new' || (ctx.mode === 'catalog' && !ctx.key.startsWith('plu:'))) ? $('item-price') : $('item-name');
     try{ f.focus({ preventScroll:true }); }catch(e){}
   }, 60);
+}
+/* prezzo da cassa: si battono solo le cifre, la virgola va da sola (1 2 9 → 1,29) */
+const coarse = () => !!((window.matchMedia && matchMedia('(any-pointer: coarse)').matches) || navigator.maxTouchPoints > 0);   // schermo da toccare
+const priceTxt = c => Math.floor(c / 100) + ',' + String(c % 100).padStart(2, '0');
+let priceFresh = false;                              // prezzo già scritto: la prima cifra battuta lo sostituisce
+function priceDigits(){ return $('item-price').value.replace(/\D/g, '').replace(/^0+/, ''); }
+function setPriceDigits(d){ d = String(d).replace(/^0+/, '').slice(0, 5); $('item-price').value = d ? priceTxt(parseInt(d, 10)) : ''; showItemErr(''); }
+$('item-keys').addEventListener('click', e => {
+  const b = e.target.closest('button[data-k]'); if(!b) return;
+  const k = b.dataset.k; let d = priceFresh ? '' : priceDigits();
+  if(k === 'del') d = d.slice(0, -1);
+  else if((d + k).replace(/^0+/, '').length <= 5) d += k;
+  priceFresh = false; setPriceDigits(d);
+  if(navigator.vibrate && settings.sound){ try{ navigator.vibrate(8); }catch(err){} }
+});
+$('item-price').addEventListener('input', () => { priceFresh = false; setPriceDigits($('item-price').value.replace(/\D/g, '')); });
+$('item-price').addEventListener('focus', () => { if($('item-keys').hidden){ try{ $('item-price').select(); }catch(e){} } });
+function setupItemSheet(ctx){
+  const keys = coarse() && !$('item-price-field').hidden;          // sul telefono: tastierino nostro, niente tastiera che copre i tasti
+  $('item-keys').hidden = !keys;
+  $('item-price').classList.toggle('is-keys', keys);   // il campo resta scrivibile: una tastiera vera funziona lo stesso
+  $('item-price').setAttribute('inputmode', keys ? 'none' : 'numeric');
+  $('item-price-hint').hidden = $('item-price-field').hidden || !!$('item-price').value;
+  priceFresh = !!$('item-price').value;
+  const parts = [];
+  if(!$('item-qty-field').hidden) parts.push('quantità');
+  if(!$('offer-row').hidden) parts.push('offerta');
+  if(!$('item-remember-wrap').hidden) parts.push('ricorda il prezzo');
+  $('item-more').hidden = !parts.length;
+  $('item-more-s').textContent = parts.join(', ');
+  $('item-more').open = ctx.mode === 'edit' || ctx.mode === 'catalog' || $('item-offer').checked;
 }
 function closeItem(){ if(!$('sheet-tag').hidden) closeTag(); $('sheet-item').hidden = true; itemCtx = null; }
 $('item-cancel').addEventListener('click', () => {
@@ -1399,7 +1489,7 @@ $('item-form').addEventListener('submit', e => {
   const name = $('item-name').value.trim().replace(/\s+/g, ' ');
   const isPluCat = ctx.mode === 'catalog' && ctx.key.startsWith('plu:');
   const price = isPluCat ? 0 : parsePrice($('item-price').value);
-  if(!isPluCat && price == null){ showItemErr('Scrivi il prezzo, ad esempio 1,29'); $('item-price').focus(); return; }
+  if(!isPluCat && price == null){ showItemErr('Batti il prezzo: per 1,29 € premi 1, 2, 9'); if($('item-keys').hidden) $('item-price').focus(); return; }
   const qty = getQty();
 
   if(ctx.mode === 'new'){
@@ -3540,8 +3630,8 @@ function showTagResult(prices, codeText, offer){
   } else chk.hidden = true;
 }
 function useTagPrice(cents){
-  $('item-price').value = euro(cents);
-  if(tagOffer){ $('item-offer').checked = true; if(tagOffer.until) $('item-offer-until').value = tagOffer.until; }
+  $('item-price').value = priceTxt(cents); priceFresh = true; $('item-price-hint').hidden = true;
+  if(tagOffer){ $('item-offer').checked = true; if(tagOffer.until) $('item-offer-until').value = tagOffer.until; $('item-more').open = true; }
   showItemErr('');
   closeTag();
   const f = $('item-price'); f.classList.remove('price-flash'); void f.offsetWidth; f.classList.add('price-flash');
