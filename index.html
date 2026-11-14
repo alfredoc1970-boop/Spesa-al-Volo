@@ -128,6 +128,8 @@ button{cursor:pointer}
 
 .controls{display:flex;flex-wrap:wrap;gap:8px}
 .controls .btn{flex:1 1 auto}
+.controls .btn-mini{flex:0 0 auto;align-self:center;min-height:36px;padding:0 12px;font-size:13px;font-weight:600;margin-left:auto}
+.controls .btn-mini svg{width:15px;height:15px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:0 14px;border-radius:var(--r-s);border:1px solid var(--line);background:var(--paper);font-weight:600;font-size:14px;line-height:1.1;text-align:center;transition:background .12s,border-color .12s,transform .06s}
 .btn:active{transform:translateY(1px)}
 .btn:hover{border-color:var(--muted)}
@@ -438,6 +440,19 @@ button{cursor:pointer}
 .pchip.is-top{background:var(--go);color:var(--go-ink);border-color:transparent;font-size:21px}
 .price-flash{animation:flash 1.1s ease-out}
 
+/* benvenuto in tre passi */
+.intro{text-align:center;gap:10px}
+.intro-art{display:grid;place-items:center;height:150px;border-radius:var(--r-s);background:var(--soft);color:var(--go)}
+.intro-art svg{width:96px;height:96px}
+.intro-art b{font-family:var(--f-num);font-size:54px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.intro-art b small{font-size:.5em;color:var(--muted);margin-right:6px}
+.intro-n{margin:4px 0 0;font-family:var(--f-num);font-size:11px;letter-spacing:.14em;color:var(--muted)}
+.intro h2{font-size:22px}
+.intro-p{margin:0;color:var(--muted);font-size:15px;line-height:1.5;min-height:4.5em}
+.intro-dots{display:flex;justify-content:center;gap:7px;padding:2px 0 6px}
+.intro-dots i{width:8px;height:8px;border-radius:50%;background:var(--line)}
+.intro-dots i.is-on{background:var(--go);width:22px;border-radius:4px}
+.intro .panel-actions .btn:first-child{flex:0 1 auto;border-color:transparent;background:transparent;color:var(--muted)}
 /* barra fissa in basso, a portata di pollice */
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:var(--paper);border-top:1px solid var(--card-line);padding:6px 10px calc(6px + env(safe-area-inset-bottom,0px));box-shadow:0 -6px 20px rgb(14 28 38 / .08)}
 .tabbar button{position:relative;display:grid;justify-items:center;align-content:center;gap:2px;min-height:54px;border:0;background:none;border-radius:12px;color:var(--muted);font-size:12.5px;font-weight:600;touch-action:manipulation}
@@ -552,10 +567,6 @@ button{cursor:pointer}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M7 9v6M10 9v6M13 9v6M16 9v6"/></svg>
             <span id="btn-cam-t">Avvia scanner</span>
           </button>
-          <button class="btn btn-laser" id="btn-remove" type="button" aria-pressed="false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg>
-            Togli un articolo
-          </button>
           <label class="btn" for="photo">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
             Foto del codice
@@ -563,6 +574,10 @@ button{cursor:pointer}
           <input id="photo" type="file" accept="image/*" capture="environment" class="offscreen">
           <button class="btn" id="btn-zoom" type="button" aria-pressed="false" hidden>Zoom 2×</button>
           <button class="btn" id="btn-torch" type="button" aria-pressed="false" hidden>Torcia</button>
+          <button class="btn btn-laser btn-mini" id="btn-remove" type="button" aria-pressed="false" aria-label="Togli un articolo sparando il suo codice" title="Togli un articolo sparando il suo codice">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg>
+            Togli sparando
+          </button>
         </div>
 
         <form class="manual" id="manual" autocomplete="off">
@@ -628,6 +643,20 @@ button{cursor:pointer}
         <button class="btn btn-go" id="btn-new-save" type="button">Salva e chiudi</button>
       </div>
     </section>
+  </div>
+</div>
+
+<div class="sheet" id="sheet-intro" hidden>
+  <div class="panel intro" role="dialog" aria-modal="true" aria-labelledby="intro-t">
+    <div class="intro-art" id="intro-art" aria-hidden="true"></div>
+    <p class="intro-n" id="intro-n">1 di 3</p>
+    <h2 id="intro-t"></h2>
+    <p class="intro-p" id="intro-p"></p>
+    <div class="intro-dots" id="intro-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="panel-actions">
+      <button class="btn" id="intro-skip" type="button">Salta</button>
+      <button class="btn btn-go" id="intro-next" type="button">Avanti</button>
+    </div>
   </div>
 </div>
 
@@ -820,6 +849,11 @@ button{cursor:pointer}
         <span class="set-ic" id="off-ic" data-ok="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.8a15 15 0 0 1 20 0M5 12.6a10 10 0 0 1 14 0M8.5 16.4a5 5 0 0 1 7 0"/><circle cx="12" cy="20" r="1"/></svg></span>
         <div class="set-t"><b>Uso senza rete</b><span id="off-s"></span></div>
         <button class="btn" id="off-btn" type="button" hidden>Scarica</button>
+      </div>
+      <div class="set-row">
+        <span class="set-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></svg></span>
+        <div class="set-t"><b>Come funziona</b><span>Rivedi i tre passi di benvenuto</span></div>
+        <button class="btn" id="set-intro" type="button">Rivedi</button>
       </div>
     </section>
 
@@ -1053,10 +1087,10 @@ let curStore = store.get(KEY.cur, null);
 if(curStore && !stores.find(s => s.id === curStore)) curStore = null;
 let catalog = catalogs[curStore || '_'] || (catalogs[curStore || '_'] = {});
 let cart = store.get(KEY.cart, null);
-let demo = false;
+let demo = false, firstRun = false;
 if(!Array.isArray(cart)){
-  if(!store.get(KEY.seen, false)){ cart = demoCart(); demo = true; }
-  else cart = [];
+  firstRun = !store.get(KEY.seen, false);          // la prima volta: tre passi di benvenuto, il conto parte vuoto
+  cart = [];
 }
 let seq = cart.reduce((m, l) => Math.max(m, l.n || 0), 0);
 let undoState = null;
@@ -1307,6 +1341,30 @@ $('lines').addEventListener('click', onLineClick);
 $('lines-off').addEventListener('click', onLineClick);
 $('recent-lines').addEventListener('click', onLineClick);
 $('recent-all').addEventListener('click', () => { const r = document.querySelector('.receipt'); if(r) r.scrollIntoView({ behavior:'smooth', block:'start' }); });
+/* ---------- benvenuto: tre passi al primo avvio ---------- */
+const INTRO = [
+  { t:'Spara il codice', p:'Inquadra il codice a barre con la fotocamera del telefono. Se non lo legge, puoi fotografarlo o scriverlo a mano.',
+    art:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" stroke-width="1.6"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M8 8v8M11 8v8M14 8v8M17 8v8"/><path d="M2 12h20" stroke="var(--laser)"/></svg>' },
+  { t:'Batti il prezzo', p:'La prima volta scrivi il prezzo che vedi sullo scaffale: batti 1, 2, 9 e diventa 1,29. Dalla volta dopo l\'app se lo ricorda.',
+    art:'<b><small>€</small>1,29</b>' },
+  { t:'Guarda il totale', p:'Il totale si aggiorna a ogni prodotto, così arrivi in cassa sapendo già quanto spendi. Se vuoi, imposta un budget e ti avviso prima di sforare.',
+    art:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" stroke-width="1.6"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/><path d="M9 16h2M14 16h1" stroke="var(--laser)"/></svg>' }
+];
+let introAt = 0;
+function showIntro(i){
+  introAt = i; const st = INTRO[i];
+  $('intro-art').innerHTML = st.art; $('intro-t').textContent = st.t; $('intro-p').textContent = st.p;
+  $('intro-n').textContent = 'PASSO ' + (i + 1) + ' DI ' + INTRO.length;
+  [...$('intro-dots').children].forEach((d, k) => d.classList.toggle('is-on', k === i));
+  $('intro-next').textContent = i === INTRO.length - 1 ? 'Inizia la spesa' : 'Avanti';
+  $('intro-skip').hidden = i === INTRO.length - 1;
+  $('sheet-intro').hidden = false;
+}
+function closeIntro(){ $('sheet-intro').hidden = true; firstRun = false; store.set(KEY.seen, true); }
+$('intro-next').addEventListener('click', () => { if(introAt < INTRO.length - 1) showIntro(introAt + 1); else closeIntro(); });
+$('intro-skip').addEventListener('click', closeIntro);
+$('set-intro').addEventListener('click', () => { $('sheet-settings').hidden = true; showIntro(0); });
+
 $('btn-demo-clear').addEventListener('click', () => { clearDemo(); render(); toast('Conto pronto', 'Spara il primo codice'); });
 
 /* ---------- modalità "togli" ---------- */
@@ -1373,7 +1431,7 @@ document.addEventListener('keydown', e => {
 
 /* ---------- foglio articolo ---------- */
 let itemCtx = null;
-function anySheetOpen(){ return !$('sheet-item').hidden || !$('sheet-cat').hidden || !$('sheet-copy').hidden || !$('sheet-tag').hidden || !$('sheet-store').hidden || !$('sheet-budget').hidden || !$('sheet-list').hidden || !$('sheet-hist').hidden || !$('sheet-settings').hidden || !$('sheet-rc').hidden; }
+function anySheetOpen(){ return !$('sheet-intro').hidden || !$('sheet-item').hidden || !$('sheet-cat').hidden || !$('sheet-copy').hidden || !$('sheet-tag').hidden || !$('sheet-store').hidden || !$('sheet-budget').hidden || !$('sheet-list').hidden || !$('sheet-hist').hidden || !$('sheet-settings').hidden || !$('sheet-rc').hidden; }
 function showItemErr(msg){ $('item-err').textContent = msg; $('item-err').hidden = !msg; }
 function setQty(n){ $('item-qty').value = String(n); $('item-qty').textContent = String(n); }
 function getQty(){ return parseInt($('item-qty').textContent, 10) || 0; }
@@ -1563,7 +1621,30 @@ $('item-form').addEventListener('submit', e => {
 /* scheda prodotto da Open Food Facts: nome, Nutri-Score, allergeni (solo se la rete lo permette) */
 const offPending = new Map();
 function offTag(t){ const k = String(t || '').replace(/^[a-z]{2}:/, ''); return ALLERG[k] ? k : null; }
-function infoFresh(code){ const i = pinfo[code]; return !!(i && Date.now() - i.t < 30 * 86400000); }
+function infoFresh(code){ const i = pinfo[code]; return !!(i && i.v === 2 && Date.now() - i.t < 30 * 86400000); }
+/* nome pulito: marca vera (non la ragione sociale), niente doppioni, niente tutto maiuscolo */
+const OFF_LEGAL = /(^|[\s.,])(s\.?\s?r\.?\s?l\.?|s\.?\s?p\.?\s?a\.?|s\.?n\.?c\.?|s\.?a\.?s\.?|s\.?a\.?|gmbh|ag|ltd|inc|llc|corp|co\.|b\.?v\.?|n\.?v\.?|a\/s|as|kg|services?|group|gruppo|holding|international|industrie|distribuzione|societ[aà]|soc\.)(?=$|[\s.,])/i;
+function offCase(t){
+  t = String(t || '').replace(/\s+/g, ' ').replace(/^[\s,;:.\-–]+|[\s,;:\-–]+$/g, '');
+  const letters = t.replace(/[^A-Za-zÀ-ÿ]/g, '');
+  if(letters.length > 3 && letters === letters.toUpperCase()) t = t.toLowerCase().replace(/(^|[\s\-'(\/])([a-zà-ÿ])/g, (m, a, b) => a + b.toUpperCase());   // TUTTO MAIUSCOLO → Iniziali Maiuscole
+  return t;
+}
+function offName(p){
+  let n = offCase(p.product_name_it || p.product_name);
+  if(!n) return '';
+  const low = x => String(x).toLowerCase().replace(/[^a-z0-9à-ÿ]+/g, ' ').trim();
+  const has = (a, b) => (' ' + low(a) + ' ').includes(' ' + low(b) + ' ');
+  const brands = String(p.brands || '').split(',').map(offCase).filter(b => b && b.length <= 28 && !OFF_LEGAL.test(b));
+  let b = brands.find(x => has(n, x)) ? '' : (brands[0] || '');       // la marca è già nel nome? non la ripeto
+  let q = String(p.quantity || '').split(/[(\/;]/)[0].replace(/\s+/g, ' ').trim().replace(/(\d)\s*([a-zA-Z]+)$/, '$1 $2').replace(/(\d)\.(\d)/, '$1,$2');
+  if(q.length > 12 || !/\d/.test(q) || low(n).replace(/ /g, '').includes(low(q).replace(/ /g, ''))) q = '';
+  const words = [b, n, q].filter(Boolean).join(' ').split(' ');
+  const out = words.filter((w, i) => i === 0 || low(w) !== low(words[i - 1]) || !low(w));   // parole ripetute di fila
+  let name = out.join(' ');
+  if(name.length > 60) name = name.slice(0, 60).replace(/\s+\S*$/, '');
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
 function offFetch(code){
   if(!/^\d{8,14}$/.test(code)) return Promise.resolve(null);
   if(offPending.has(code)) return offPending.get(code);
@@ -1572,10 +1653,9 @@ function offFetch(code){
     try{
       const r = await fetch('https://world.openfoodfacts.org/api/v2/product/' + code + '.json?fields=product_name_it,product_name,brands,quantity,nutriscore_grade,allergens_tags,traces_tags', { signal: ctl.signal });
       if(!r.ok) return null;
-      const j = await r.json(), p = j && j.status === 1 && j.product, info = { t: Date.now(), found: !!p };
+      const j = await r.json(), p = j && j.status === 1 && j.product, info = { t: Date.now(), found: !!p, v: 2 };
       if(p){
-        const n = String(p.product_name_it || p.product_name || '').trim(), b = String(p.brands || '').split(',')[0].trim(), q = String(p.quantity || '').trim();
-        if(n) info.name = [b && !n.toLowerCase().includes(b.toLowerCase()) ? b : '', n, q].filter(Boolean).join(' ').slice(0, 60);
+        const n = offName(p); if(n) info.name = n;
         const ns = String(p.nutriscore_grade || '').toLowerCase(); if(/^[a-e]$/.test(ns)) info.ns = ns;
         info.al = [...new Set((p.allergens_tags || []).map(offTag).filter(Boolean))];
         info.tr = [...new Set((p.traces_tags || []).map(offTag).filter(Boolean))];
@@ -3689,6 +3769,7 @@ document.addEventListener('visibilitychange', () => { if(document.hidden && !$('
 
 updateStoreBar();
 render();
+if(firstRun) showIntro(0);
 setCamUI('off');
 autoStore();
 })();
