@@ -1242,9 +1242,35 @@ $('btn-remove').addEventListener('click', () => {
 /* ---------- inserimento a mano e pistola ---------- */
 $('manual').addEventListener('submit', e => {
   e.preventDefault();
-  const v = $('code-input').value; $('code-input').value = '';
-  if(v.trim()) handleCode(v);
+  const v = $('code-input').value;
+  if(!v.trim()){ $('code-input').value = ''; return; }
+  const why = typedDoubt(v);
+  if(why && typedAsked !== v.trim()){           // sembra un errore di battitura: lo lascio nel campo da correggere
+    typedAsked = v.trim(); feedback('err');
+    toast('Controlla il codice', why + ' Correggilo, oppure tocca «Usa così».', { tone:'warn',
+      action:{ label:'Usa così', fn: () => { typedAsked = null; $('code-input').value = ''; handleCode(v); } } });
+    $('code-input').focus();
+    return;
+  }
+  typedAsked = null; $('code-input').value = '';
+  handleCode(v);
 });
+$('code-input').addEventListener('input', () => { typedAsked = null; });
+// un codice scritto a mano che non torna: prima di aprire un articolo nuovo chiedo di ricontrollarlo
+let typedAsked = null;
+function typedDoubt(v){
+  const r = readScan(v);
+  if(!r || r.kind === 'gs1') return null;
+  if(catalog[r.key] || cart.some(l => l.code === r.key)) return null;        // già conosciuto
+  const c = String(v).replace(/\s+/g, '');
+  if(/^\d+$/.test(c)){
+    if(c.length === 8 || c.length === 13) return eanValid(c) ? null : 'L\'ultima cifra non torna con le altre: forse una cifra è sbagliata.';
+    if(c.length === 12) return eanValid('0' + c) ? null : 'L\'ultima cifra non torna con le altre: forse una cifra è sbagliata.';
+    if(c.length === 6 || c.length === 7 || c.length === 14) return null;   // codici interni del negozio, cartoni
+    return 'Un codice a barre ha di solito 8 o 13 cifre, qui ne conto ' + c.length + '.';
+  }
+  return 'Non sembra un codice a barre.';
+}
 // pistola Bluetooth/USB che "scrive" il codice anche senza campo selezionato
 const kb = { buf:'', last:0, fast:0 };
 document.addEventListener('keydown', e => {
@@ -1639,27 +1665,39 @@ async function findNearbyShops(c){
   const r = Math.round(Math.min(800, Math.max(350, (c.accuracy || 50) * 2)));
   const q = '[out:json][timeout:12];nwr(around:' + r + ',' + c.latitude.toFixed(6) + ',' + c.longitude.toFixed(6) +
     ')["shop"~"^(' + Object.keys(SHOP_LABEL).join('|') + ')$"];out center tags 40;';
-  for(const url of ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter']){
-    try{
-      const res = await withTimeout(fetch(url, { method:'POST', body:'data=' + encodeURIComponent(q),
-        headers:{ 'Content-Type':'application/x-www-form-urlencoded' } }), 14000);
-      if(!res.ok) continue;
-      const j = await res.json(), seen = new Set(), out = [];
-      for(const e of j.elements || []){
-        const lat = e.lat != null ? e.lat : e.center && e.center.lat, lon = e.lon != null ? e.lon : e.center && e.center.lon;
-        if(lat == null) continue;
-        const t = e.tags || {}, kind = SHOP_LABEL[t.shop] || 'Negozio';
-        const name = (t.name || t.brand || kind).trim();
-        const addr = [t['addr:street'], t['addr:housenumber']].filter(Boolean).join(' ') || t['addr:city'] || '';
-        const key = (name + '|' + addr).toLowerCase();
-        if(seen.has(key)) continue; seen.add(key);
-        out.push({ osm: e.type + '/' + e.id, name: addr && !name.toLowerCase().includes(addr.toLowerCase()) ? name + ' – ' + addr : name,
-          kind: t.name ? kind : '', lat, lon, d: metres(c.latitude, c.longitude, lat, lon) });
-      }
-      return out.sort((a, b) => a.d - b.d).slice(0, 10);
-    }catch(e){}
-  }
-  return null;
+  const parse = j => {
+    const seen = new Set(), out = [];
+    for(const e of j.elements || []){
+      const lat = e.lat != null ? e.lat : e.center && e.center.lat, lon = e.lon != null ? e.lon : e.center && e.center.lon;
+      if(lat == null) continue;
+      const t = e.tags || {}, kind = SHOP_LABEL[t.shop] || 'Negozio';
+      const name = (t.name || t.brand || kind).trim();
+      const addr = [t['addr:street'], t['addr:housenumber']].filter(Boolean).join(' ') || t['addr:city'] || '';
+      const key = (name + '|' + addr).toLowerCase();
+      if(seen.has(key)) continue; seen.add(key);
+      out.push({ osm: e.type + '/' + e.id, name: addr && !name.toLowerCase().includes(addr.toLowerCase()) ? name + ' – ' + addr : name,
+        kind: t.name ? kind : '', lat, lon, d: metres(c.latitude, c.longitude, lat, lon) });
+    }
+    return out.sort((a, b) => a.d - b.d).slice(0, 10);
+  };
+  // i server della mappa a volte sono lenti: li interrogo tutti insieme e vince il primo che risponde
+  const servers = ['https://overpass.openstreetmap.fr/api/interpreter', 'https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+  const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+  const ask = async url => {
+    const res = await fetch(url, { method:'POST', body:'data=' + encodeURIComponent(q), signal: ctl ? ctl.signal : undefined,
+      headers:{ 'Content-Type':'application/x-www-form-urlencoded' } });
+    if(!res.ok) throw new Error('http ' + res.status);
+    const j = await res.json();
+    if(!j || !Array.isArray(j.elements)) throw new Error('risposta non valida');
+    return parse(j);
+  };
+  const first = new Promise((ok, ko) => {
+    let left = servers.length;
+    servers.forEach(u => ask(u).then(ok, () => { if(--left === 0) ko(new Error('nessun server')); }));
+  });
+  try{ return await withTimeout(first, 35000); }
+  catch(e){ return null; }
+  finally{ if(ctl){ try{ ctl.abort(); }catch(e){} } }
 }
 
 /* foglio "Dove fai la spesa?" */
@@ -1705,7 +1743,7 @@ async function refreshStores(){
     $('st-status').classList.add('is-warn');
     return;
   }
-  $('st-status').textContent = 'Posizione trovata (precisione ±' + Math.round(c.accuracy || 0) + ' m). Cerco i negozi qui vicino…';
+  $('st-status').textContent = 'Posizione trovata (precisione ±' + Math.round(c.accuracy || 0) + ' m). Cerco i negozi qui vicino: può volerci qualche secondo…';
   const shops = await findNearbyShops(c);
   if(token !== storeToken) return;
   nearbyShops = shops || [];
@@ -2759,9 +2797,10 @@ $('bk-file').addEventListener('change', async e => {
   const d = new Date(j.date);
   $('bk-restore-t').textContent = 'Backup del ' + d.toLocaleDateString('it-IT') + ' alle ' + d.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' }) +
     ': ' + countsText(counts(j.data)) + '. Vuoi unirlo ai dati di questo telefono o sostituirli?';
+  disarmReplace();
   $('bk-restore').hidden = false;
 });
-$('bk-cancel').addEventListener('click', () => { pendingRestore = null; $('bk-restore').hidden = true; });
+$('bk-cancel').addEventListener('click', () => { pendingRestore = null; $('bk-restore').hidden = true; disarmReplace(); });
 function persistAll(){ saveStores(); saveCat(); saveList(); saveHist(); saveSet(); save(); store.set(KEY.cur, curStore); store.set(KEY.seen, true); }
 function afterRestore(msg, sub){
   catalog = catalogs[curStore || '_'] || (catalogs[curStore || '_'] = {});
@@ -2770,8 +2809,16 @@ function afterRestore(msg, sub){
   updateStoreBar(); render(); refreshSettings(); updateSettingsDot();
   feedback('add'); toast(msg, sub);
 }
+let armedReplace = false, armReplaceTimer = 0;
+function disarmReplace(){ armedReplace = false; clearTimeout(armReplaceTimer); $('bk-replace').textContent = 'Sostituisci tutto'; $('bk-replace').classList.remove('is-arm'); }
 $('bk-replace').addEventListener('click', () => {
   const d = pendingRestore; if(!d) return;
+  if(!armedReplace){                           // primo tocco: chiedo conferma, i dati di adesso verrebbero cancellati
+    armedReplace = true; $('bk-replace').textContent = 'Conferma: cancello i dati di adesso'; $('bk-replace').classList.add('is-arm');
+    clearTimeout(armReplaceTimer); armReplaceTimer = setTimeout(disarmReplace, 5000);
+    return;
+  }
+  disarmReplace();
   stores = Array.isArray(d.stores) ? d.stores : [];
   catalogs = d.catalogs && typeof d.catalogs === 'object' ? d.catalogs : {};
   curStore = d.cur && stores.some(s => s.id === d.cur) ? d.cur : null;
@@ -2785,6 +2832,7 @@ $('bk-replace').addEventListener('click', () => {
 });
 $('bk-merge').addEventListener('click', () => {
   const d = pendingRestore; if(!d) return;
+  disarmReplace();
   const map = {}; let newStores = 0, added = 0, updated = 0, newSpese = 0;
   for(const s of d.stores || []){
     let local = stores.find(x => x.id === s.id) ||
@@ -2858,7 +2906,7 @@ async function refreshSettings(){
   $('set-weighed').checked = !!settings.weighed;
   $('set-sound').checked = !!settings.sound;
 }
-function openSettings(){ $('bk-restore').hidden = true; pendingRestore = null; $('sheet-settings').hidden = false; refreshSettings(); }
+function openSettings(){ disarmReplace(); $('bk-restore').hidden = true; pendingRestore = null; $('sheet-settings').hidden = false; refreshSettings(); }
 $('btn-settings').addEventListener('click', openSettings);
 $('set-close').addEventListener('click', () => { $('sheet-settings').hidden = true; });
 $('inst-btn').addEventListener('click', doInstall);
